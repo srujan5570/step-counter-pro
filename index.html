@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>StepTracker - Step Counter App</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" data-href="manifest.json">
+    <meta name="theme-color" content="#1FB8CD">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="StepTracker">
+</head>
+<body>
+    <!-- Welcome Screen -->
+    <div id="welcomeScreen" class="screen welcome-screen">
+        <div class="welcome-content">
+            <div class="app-logo">
+                <div class="logo-circle">
+                    <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </div>
+            </div>
+            <h1 class="welcome-title">StepTracker</h1>
+            <p class="welcome-subtitle">Your personal fitness companion</p>
+            <div class="welcome-features">
+                <div class="feature-item">
+                    <div class="feature-icon">📱</div>
+                    <span>Real-time step counting</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🎯</div>
+                    <span>Daily goal tracking</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📊</div>
+                    <span>Progress analytics</span>
+                </div>
+            </div>
+            <button id="requestPermissionBtn" class="btn btn--primary btn--lg btn--full-width">
+                Get Started
+            </button>
+            <p class="permission-note">We need access to your device's motion sensors to count your steps accurately.</p>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="mainApp" class="app-container hidden">
+        <!-- Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-screen="dashboard">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9,22 9,12 15,12 15,22"></polyline>
+                </svg>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-item" data-screen="history">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 3v5h5"></path>
+                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path>
+                    <path d="M12 7v5l4 2"></path>
+                </svg>
+                <span>History</span>
+            </button>
+            <button class="nav-item" data-screen="achievements">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="8" r="7"></circle>
+                    <polyline points="8.21,13.89 7,23 12,20 17,23 15.79,13.88"></polyline>
+                </svg>
+                <span>Awards</span>
+            </button>
+            <button class="nav-item" data-screen="settings">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"></path>
+                </svg>
+                <span>Settings</span>
+            </button>
+        </nav>
+
+        <!-- Dashboard Screen -->
+        <div id="dashboardScreen" class="screen dashboard-screen active">
+            <div class="screen-header">
+                <h2>Today's Progress</h2>
+                <div class="date-display" id="currentDate"></div>
+            </div>
+            
+            <div class="step-counter-card card">
+                <div class="step-counter-main">
+                    <div class="progress-circle" id="progressCircle">
+                        <div class="progress-circle-inner">
+                            <div class="step-count" id="stepCount">0</div>
+                            <div class="step-label">steps</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="step-stats">
+                    <div class="stat-item">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="goalProgress">0%</div>
+                            <div class="stat-label">Goal</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">📏</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="distanceValue">0.0 km</div>
+                            <div class="stat-label">Distance</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">🔥</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="caloriesValue">0</div>
+                            <div class="stat-label">Calories</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">⏱️</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="activeTimeValue">0m</div>
+                            <div class="stat-label">Active Time</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tracking-controls">
+                <button id="trackingBtn" class="btn btn--primary btn--lg tracking-btn">
+                    <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Start Tracking
+                </button>
+                <button id="resetBtn" class="btn btn--outline reset-btn">
+                    <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                        <path d="M21 3v5h-5"></path>
+                        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                        <path d="M3 21v-5h5"></path>
+                    </svg>
+                    Reset
+                </button>
+            </div>
+
+            <div class="motivation-card card">
+                <div class="quote-icon">💪</div>
+                <div class="quote-text" id="motivationQuote">Every step counts towards a healthier you!</div>
+            </div>
+        </div>
+
+        <!-- History Screen -->
+        <div id="historyScreen" class="screen history-screen">
+            <div class="screen-header">
+                <h2>Activity History</h2>
+                <div class="period-selector">
+                    <button class="period-btn active" data-period="week">Week</button>
+                    <button class="period-btn" data-period="month">Month</button>
+                </div>
+            </div>
+
+            <div class="stats-cards">
+                <div class="stat-card card">
+                    <div class="stat-card-icon">📈</div>
+                    <div class="stat-card-info">
+                        <div class="stat-card-value" id="avgSteps">8,234</div>
+                        <div class="stat-card-label">Daily Average</div>
+                    </div>
+                </div>
+                <div class="stat-card card">
+                    <div class="stat-card-icon">🏆</div>
+                    <div class="stat-card-info">
+                        <div class="stat-card-value" id="bestDay">12,847</div>
+                        <div class="stat-card-label">Best Day</div>
+                    </div>
+                </div>
+                <div class="stat-card card">
+                    <div class="stat-card-icon">🔥</div>
+                    <div class="stat-card-info">
+                        <div class="stat-card-value" id="totalDistance">42.3 km</div>
+                        <div class="stat-card-label">Total Distance</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card card">
+                <div class="chart-header">
+                    <h3>Steps Timeline</h3>
+                </div>
+                <div class="chart-container" style="position: relative; height: 300px;">
+                    <canvas id="stepsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Achievements Screen -->
+        <div id="achievementsScreen" class="screen achievements-screen">
+            <div class="screen-header">
+                <h2>Achievements</h2>
+                <div class="streak-info">
+                    <span class="streak-emoji">🔥</span>
+                    <span id="currentStreak">3 day streak!</span>
+                </div>
+            </div>
+
+            <div class="achievements-list" id="achievementsList">
+                <!-- Achievement items will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Settings Screen -->
+        <div id="settingsScreen" class="screen settings-screen">
+            <div class="screen-header">
+                <h2>Settings</h2>
+            </div>
+
+            <div class="settings-sections">
+                <div class="setting-section card">
+                    <h3 class="section-title">Goals & Tracking</h3>
+                    <div class="setting-item">
+                        <label class="form-label">Daily Step Goal</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="dailyGoalInput" class="form-control" value="10000" min="1000" max="50000">
+                            <span class="unit">steps</span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="form-label">Detection Sensitivity</label>
+                        <select id="sensitivitySelect" class="form-control">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setting-section card">
+                    <h3 class="section-title">Personal Information</h3>
+                    <div class="setting-item">
+                        <label class="form-label">Height</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="heightInput" class="form-control" value="170" min="100" max="250">
+                            <span class="unit">cm</span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="form-label">Weight</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="weightInput" class="form-control" value="70" min="30" max="200">
+                            <span class="unit">kg</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-section card">
+                    <h3 class="section-title">Appearance</h3>
+                    <div class="setting-item">
+                        <label class="form-label">Theme</label>
+                        <select id="themeSelect" class="form-control">
+                            <option value="Ocean Blue">Ocean Blue</option>
+                            <option value="Forest Green">Forest Green</option>
+                            <option value="Sunset Orange">Sunset Orange</option>
+                            <option value="Royal Purple">Royal Purple</option>
+                            <option value="Cherry Red">Cherry Red</option>
+                            <option value="Golden Yellow">Golden Yellow</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setting-section card">
+                    <h3 class="section-title">Data</h3>
+                    <div class="action-buttons">
+                        <button id="exportDataBtn" class="btn btn--outline btn--full-width">
+                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7,10 12,15 17,10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Export Data
+                        </button>
+                        <button id="resetDataBtn" class="btn btn--outline btn--full-width reset-data-btn">
+                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3,6 5,6 21,6"></polyline>
+                                <path d="m19,6v14a2,2 0,0 1,-2,2H7a2,2 0,0 1,-2,-2V6m3,0V4a2,2 0,0 1,2,-2h4a2,2 0,0 1,2,2V6"></path>
+                            </svg>
+                            Reset All Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permission Modal -->
+    <div id="permissionModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Motion Access Required</h3>
+            </div>
+            <div class="modal-body">
+                <p>To accurately count your steps, we need permission to access your device's motion sensors. This data stays on your device and is never shared.</p>
+                <div class="permission-features">
+                    <div class="permission-feature">
+                        <div class="permission-icon">🔒</div>
+                        <span>Privacy protected</span>
+                    </div>
+                    <div class="permission-feature">
+                        <div class="permission-icon">📱</div>
+                        <span>Works offline</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="grantPermissionBtn" class="btn btn--primary btn--full-width">Allow Motion Access</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden">
+        <div class="toast-content">
+            <div class="toast-icon"></div>
+            <div class="toast-message"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
