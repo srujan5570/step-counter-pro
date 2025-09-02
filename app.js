@@ -28,39 +28,35 @@ class FitTrackerApp {
     }
 
     async init() {
-        await this.setupPWA();
-        await this.loadUserData();
-        await this.initializeManagers();
-        
-        if (!this.userData.isOnboardingComplete()) {
+        try {
+            // Hide loading screen immediately if shown
+            this.hideLoadingScreen();
+            
+            await this.setupPWA();
+            await this.loadUserData();
+            await this.initializeManagers();
+            
+            if (!this.userData.isOnboardingComplete()) {
+                this.screenManager.showWelcome();
+            } else {
+                this.screenManager.showMainApp();
+                await this.refreshDashboard();
+            }
+            
+            this.setupEventListeners();
+            this.startBackgroundTasks();
+            
+            // Update offline status
+            this.updateOfflineStatus();
+            
+        } catch (error) {
+            console.error('App initialization error:', error);
+            this.hideLoadingScreen();
             this.screenManager.showWelcome();
-        } else {
-            this.screenManager.showMainApp();
-            await this.refreshDashboard();
         }
-        
-        this.setupEventListeners();
-        this.startBackgroundTasks();
     }
 
     async setupPWA() {
-        // Register service worker
-        if ('serviceWorker' in navigator) {
-            try {
-                this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
-                console.log('Service Worker registered successfully');
-            } catch (error) {
-                console.error('Service Worker registration failed:', error);
-            }
-        }
-
-        // Handle installation prompt
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            this.installPromptEvent = e;
-            this.showInstallPrompt();
-        });
-
         // Handle online/offline status
         window.addEventListener('online', () => {
             this.isOnline = true;
@@ -72,6 +68,24 @@ class FitTrackerApp {
             this.isOnline = false;
             this.updateOfflineStatus();
         });
+
+        // Handle installation prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.installPromptEvent = e;
+            this.showInstallPrompt();
+        });
+
+        // Register service worker (non-blocking)
+        if ('serviceWorker' in navigator) {
+            try {
+                this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
+                console.log('Service Worker registered successfully');
+            } catch (error) {
+                console.error('Service Worker registration failed:', error);
+                // Don't block app loading for SW failures
+            }
+        }
     }
 
     async loadUserData() {
@@ -151,8 +165,8 @@ class FitTrackerApp {
         });
 
         // Modal management
-        document.querySelectorAll('.modal-close').forEach(btn => {
-            btn.addEventListener('click', (e) => this.modalManager.closeModal());
+        document.querySelectorAll('.modal-close, .modal-overlay').forEach(element => {
+            element.addEventListener('click', () => this.modalManager.closeModal());
         });
 
         // Toast close
@@ -183,7 +197,7 @@ class FitTrackerApp {
         // Add food buttons
         document.querySelectorAll('.add-food-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const mealType = e.target.closest('.meal-category').dataset.meal;
+                const mealType = e.target.closest('.meal-category')?.dataset.meal || 'breakfast';
                 this.openFoodSearch(mealType);
             });
         });
@@ -194,6 +208,7 @@ class FitTrackerApp {
             if (e.key === 'Escape') {
                 this.modalManager.closeModal();
                 this.toastManager.hideToast();
+                this.hideLoadingScreen();
             }
         });
     }
@@ -240,6 +255,8 @@ class FitTrackerApp {
             } else {
                 this.completeOnboarding();
             }
+        } else {
+            this.toastManager.showToast('Please complete all required fields', 'error');
         }
     }
 
@@ -253,28 +270,31 @@ class FitTrackerApp {
 
     showOnboardingStep() {
         document.querySelectorAll('.onboarding-step').forEach(step => step.classList.remove('active'));
-        document.getElementById(`step${this.onboardingStep}`).classList.add('active');
+        document.getElementById(`step${this.onboardingStep}`)?.classList.add('active');
         
         const prevBtn = document.getElementById('prevStepBtn');
         const nextBtn = document.getElementById('nextStepBtn');
         
-        prevBtn.style.display = this.onboardingStep > 1 ? 'block' : 'none';
-        nextBtn.textContent = this.onboardingStep === 4 ? 'Complete Setup' : 'Next';
+        if (prevBtn) prevBtn.style.display = this.onboardingStep > 1 ? 'block' : 'none';
+        if (nextBtn) nextBtn.textContent = this.onboardingStep === 4 ? 'Complete Setup' : 'Next';
     }
 
     updateOnboardingProgress() {
         const progress = (this.onboardingStep / 4) * 100;
-        document.getElementById('onboardingProgress').style.width = `${progress}%`;
-        document.getElementById('onboardingStep').textContent = `Step ${this.onboardingStep} of 4`;
+        const progressFill = document.getElementById('onboardingProgress');
+        const stepText = document.getElementById('onboardingStep');
+        
+        if (progressFill) progressFill.style.width = `${progress}%`;
+        if (stepText) stepText.textContent = `Step ${this.onboardingStep} of 4`;
     }
 
     validateOnboardingStep(step) {
         switch (step) {
             case 1:
-                const name = document.getElementById('userName').value;
-                const age = document.getElementById('userAge').value;
-                const height = document.getElementById('userHeight').value;
-                const weight = document.getElementById('userWeight').value;
+                const name = document.getElementById('userName')?.value;
+                const age = document.getElementById('userAge')?.value;
+                const height = document.getElementById('userHeight')?.value;
+                const weight = document.getElementById('userWeight')?.value;
                 return name && age && height && weight;
             case 2:
                 return document.querySelector('.goal-option.selected') !== null;
@@ -293,24 +313,30 @@ class FitTrackerApp {
     }
 
     async completeOnboarding() {
-        // Save user data from onboarding
-        const userData = {
-            name: document.getElementById('userName').value,
-            age: parseInt(document.getElementById('userAge').value),
-            gender: document.getElementById('userGender').value,
-            height: parseInt(document.getElementById('userHeight').value),
-            weight: parseInt(document.getElementById('userWeight').value),
-            goal: document.querySelector('.goal-option.selected').dataset.goal,
-            activityLevel: document.getElementById('activityLevel').value,
-            stepGoal: parseInt(document.getElementById('stepGoal').value),
-            waterGoal: parseInt(document.getElementById('waterGoal').value),
-            workoutGoal: parseInt(document.getElementById('workoutGoal').value)
-        };
+        try {
+            // Save user data from onboarding
+            const selectedGoal = document.querySelector('.goal-option.selected');
+            const userData = {
+                name: document.getElementById('userName')?.value || 'User',
+                age: parseInt(document.getElementById('userAge')?.value) || 25,
+                gender: document.getElementById('userGender')?.value || 'male',
+                height: parseInt(document.getElementById('userHeight')?.value) || 170,
+                weight: parseInt(document.getElementById('userWeight')?.value) || 70,
+                goal: selectedGoal?.dataset.goal || 'general',
+                activityLevel: document.getElementById('activityLevel')?.value || 'moderate',
+                stepGoal: parseInt(document.getElementById('stepGoal')?.value) || 10000,
+                waterGoal: parseInt(document.getElementById('waterGoal')?.value) || 8,
+                workoutGoal: parseInt(document.getElementById('workoutGoal')?.value) || 30
+            };
 
-        await this.userData.completeOnboarding(userData);
-        this.screenManager.showMainApp();
-        await this.refreshDashboard();
-        this.toastManager.showToast('Welcome to FitTracker Pro!', 'success');
+            await this.userData.completeOnboarding(userData);
+            this.screenManager.showMainApp();
+            await this.refreshDashboard();
+            this.toastManager.showToast(`Welcome to FitTracker Pro, ${userData.name}!`, 'success');
+        } catch (error) {
+            console.error('Onboarding completion error:', error);
+            this.toastManager.showToast('Error completing setup. Please try again.', 'error');
+        }
     }
 
     // Permission Requests
@@ -331,6 +357,7 @@ class FitTrackerApp {
                 this.toastManager.showToast('Motion tracking enabled!', 'success');
             }
         } catch (error) {
+            console.error('Motion permission error:', error);
             this.toastManager.showToast('Motion sensors not available', 'error');
         }
     }
@@ -350,6 +377,7 @@ class FitTrackerApp {
                 );
             }
         } catch (error) {
+            console.error('Location permission error:', error);
             this.toastManager.showToast('Location services not available', 'error');
         }
     }
@@ -370,6 +398,7 @@ class FitTrackerApp {
                 this.toastManager.showToast('Notification permission denied', 'error');
             }
         } catch (error) {
+            console.error('Notification permission error:', error);
             this.toastManager.showToast('Notifications not supported', 'error');
         }
     }
@@ -377,7 +406,7 @@ class FitTrackerApp {
     updatePermissionButton(btnId, granted) {
         const btn = document.getElementById(btnId);
         if (btn && granted) {
-            btn.textContent = 'Enabled';
+            btn.textContent = '✓ Enabled';
             btn.classList.remove('btn--primary');
             btn.classList.add('btn--secondary');
             btn.disabled = true;
@@ -410,11 +439,15 @@ class FitTrackerApp {
 
     // Dashboard Functions
     async refreshDashboard() {
-        this.updateGreeting();
-        await this.updateDashboardStats();
-        this.updateRecentActivities();
-        this.updateLatestAchievements();
-        this.showMotivationalQuote();
+        try {
+            this.updateGreeting();
+            await this.updateDashboardStats();
+            this.updateRecentActivities();
+            this.updateLatestAchievements();
+            this.showMotivationalQuote();
+        } catch (error) {
+            console.error('Dashboard refresh error:', error);
+        }
     }
 
     updateGreeting() {
@@ -424,7 +457,10 @@ class FitTrackerApp {
         else if (hour >= 17) greeting = 'Good Evening!';
         
         const userName = this.userData.profile.name || 'Fitness Enthusiast';
-        document.getElementById('greetingText').textContent = `${greeting}, ${userName}`;
+        const greetingElement = document.getElementById('greetingText');
+        if (greetingElement) {
+            greetingElement.textContent = `${greeting}, ${userName.split(' ')[0]}`;
+        }
         
         const motivationTexts = [
             "Let's crush those goals today!",
@@ -435,38 +471,43 @@ class FitTrackerApp {
         ];
         
         const randomMotivation = motivationTexts[Math.floor(Math.random() * motivationTexts.length)];
-        document.getElementById('motivationText').textContent = randomMotivation;
+        const motivationElement = document.getElementById('motivationText');
+        if (motivationElement) {
+            motivationElement.textContent = randomMotivation;
+        }
     }
 
     async updateDashboardStats() {
-        const today = new Date().toISOString().split('T')[0];
-        
-        // Steps
-        const todaySteps = this.stepTracker.getTodaySteps();
-        const stepGoal = this.userData.settings.stepGoal;
-        document.getElementById('todaySteps').textContent = todaySteps.toLocaleString();
-        this.updateProgressBar('stepsProgress', (todaySteps / stepGoal) * 100);
+        try {
+            // Steps
+            const todaySteps = this.stepTracker.getTodaySteps();
+            const stepGoal = this.userData.settings.stepGoal;
+            document.getElementById('todaySteps').textContent = todaySteps.toLocaleString();
+            this.updateProgressBar('stepsProgress', (todaySteps / stepGoal) * 100);
 
-        // Calories
-        const consumedCalories = await this.nutritionManager.getTodayCalories();
-        const calorieGoal = this.userData.settings.calorieGoal;
-        document.getElementById('todayCalories').textContent = Math.round(consumedCalories);
-        this.updateProgressBar('caloriesProgress', (consumedCalories / calorieGoal) * 100);
+            // Calories
+            const consumedCalories = await this.nutritionManager.getTodayCalories();
+            const calorieGoal = this.userData.settings.calorieGoal;
+            document.getElementById('todayCalories').textContent = Math.round(consumedCalories);
+            this.updateProgressBar('caloriesProgress', (consumedCalories / calorieGoal) * 100);
 
-        // Workouts
-        const todayWorkouts = await this.workoutManager.getTodayWorkouts();
-        const workoutGoal = this.userData.settings.workoutGoal;
-        document.getElementById('todayWorkouts').textContent = todayWorkouts;
-        this.updateProgressBar('workoutsProgress', (todayWorkouts / workoutGoal) * 100);
+            // Workouts
+            const todayWorkouts = await this.workoutManager.getTodayWorkouts();
+            const workoutGoal = 1; // Daily workout goal
+            document.getElementById('todayWorkouts').textContent = todayWorkouts;
+            this.updateProgressBar('workoutsProgress', (todayWorkouts / workoutGoal) * 100);
 
-        // Water
-        const todayWater = this.nutritionManager.getTodayWater();
-        const waterGoal = this.userData.settings.waterGoal;
-        document.getElementById('todayWater').textContent = todayWater;
-        this.updateProgressBar('waterProgress', (todayWater / waterGoal) * 100);
-        
-        // Update water visual
-        this.updateWaterBottle();
+            // Water
+            const todayWater = this.nutritionManager.getTodayWater();
+            const waterGoal = this.userData.settings.waterGoal;
+            document.getElementById('todayWater').textContent = todayWater;
+            this.updateProgressBar('waterProgress', (todayWater / waterGoal) * 100);
+            
+            // Update water visual
+            this.updateWaterBottle();
+        } catch (error) {
+            console.error('Dashboard stats update error:', error);
+        }
     }
 
     updateProgressBar(elementId, percentage) {
@@ -483,7 +524,7 @@ class FitTrackerApp {
         if (!container) return;
         
         if (activities.length === 0) {
-            container.innerHTML = '<p class="text-center text-secondary">No recent activities</p>';
+            container.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); padding: var(--space-16);">No recent activities. Start your fitness journey!</p>';
             return;
         }
 
@@ -504,6 +545,28 @@ class FitTrackerApp {
         
         if (!container) return;
         
+        if (achievements.length === 0) {
+            container.innerHTML = `
+                <div class="achievement-badge">
+                    <div class="badge-icon">🎯</div>
+                    <div class="badge-name">Start Your Journey</div>
+                </div>
+                <div class="achievement-badge">
+                    <div class="badge-icon">💪</div>
+                    <div class="badge-name">First Workout</div>
+                </div>
+                <div class="achievement-badge">
+                    <div class="badge-icon">💧</div>
+                    <div class="badge-name">Stay Hydrated</div>
+                </div>
+                <div class="achievement-badge">
+                    <div class="badge-icon">🏆</div>
+                    <div class="badge-name">Goal Achieved</div>
+                </div>
+            `;
+            return;
+        }
+
         container.innerHTML = achievements.slice(0, 4).map(achievement => `
             <div class="achievement-badge ${achievement.unlocked ? 'unlocked' : ''}">
                 <div class="badge-icon">${achievement.icon}</div>
@@ -513,65 +576,71 @@ class FitTrackerApp {
     }
 
     showMotivationalQuote() {
-        const quotes = [
-            "The only bad workout is the one that didn't happen.",
-            "Progress, not perfection.",
-            "Your body can do it. It's your mind you need to convince.",
-            "Every step forward is progress.",
-            "Fitness is not about being better than someone else.",
-            "The groundwork for all happiness is good health.",
-            "Take care of your body. It's the only place you have to live."
-        ];
-        
-        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-        // You could add a quote display element to the dashboard if needed
+        // Could add motivational quote display if needed
     }
 
     // Quick Actions
     async handleQuickAction(action) {
-        switch (action) {
-            case 'start-workout':
-                this.openWorkoutSelector();
-                break;
-            case 'log-meal':
-                this.openFoodSearch();
-                break;
-            case 'add-water':
-                this.addWater();
-                break;
-            case 'track-weight':
-                this.openWeightTracker();
-                break;
+        try {
+            switch (action) {
+                case 'start-workout':
+                    this.switchScreen('workouts');
+                    break;
+                case 'log-meal':
+                    this.openFoodSearch();
+                    break;
+                case 'add-water':
+                    this.addWater();
+                    break;
+                case 'track-weight':
+                    this.toastManager.showToast('Weight tracking coming soon!', 'info');
+                    break;
+            }
+        } catch (error) {
+            console.error('Quick action error:', error);
+            this.toastManager.showToast('Action failed. Please try again.', 'error');
         }
     }
 
     // Water Tracking
     addWater() {
-        this.nutritionManager.addWater(1);
-        this.updateWaterBottle();
-        this.updateDashboardStats();
-        this.toastManager.showToast('Water logged!', 'success');
-        this.achievementManager.checkWaterAchievements();
+        try {
+            this.nutritionManager.addWater(1);
+            this.updateWaterBottle();
+            this.updateDashboardStats();
+            this.toastManager.showToast('Water logged! 💧', 'success');
+            this.achievementManager.checkWaterAchievements();
+        } catch (error) {
+            console.error('Add water error:', error);
+            this.toastManager.showToast('Failed to log water', 'error');
+        }
     }
 
     removeWater() {
-        if (this.nutritionManager.getTodayWater() > 0) {
-            this.nutritionManager.removeWater(1);
-            this.updateWaterBottle();
-            this.updateDashboardStats();
+        try {
+            if (this.nutritionManager.getTodayWater() > 0) {
+                this.nutritionManager.removeWater(1);
+                this.updateWaterBottle();
+                this.updateDashboardStats();
+                this.toastManager.showToast('Water removed', 'info');
+            } else {
+                this.toastManager.showToast('No water to remove', 'info');
+            }
+        } catch (error) {
+            console.error('Remove water error:', error);
         }
     }
 
     updateWaterBottle() {
         const todayWater = this.nutritionManager.getTodayWater();
         const waterGoal = this.userData.settings.waterGoal;
-        const percentage = (todayWater / waterGoal) * 100;
+        const percentage = Math.min((todayWater / waterGoal) * 100, 100);
         
         const waterLevel = document.getElementById('waterLevel');
         const waterAmount = document.getElementById('waterAmount');
         
         if (waterLevel) {
-            waterLevel.style.height = `${Math.min(percentage, 100)}%`;
+            waterLevel.style.height = `${percentage}%`;
         }
         
         if (waterAmount) {
@@ -582,8 +651,17 @@ class FitTrackerApp {
     // Food Logging
     openFoodSearch(mealType = 'breakfast') {
         this.modalManager.openModal('foodModal');
-        document.getElementById('mealCategory').value = mealType;
+        const mealCategorySelect = document.getElementById('mealCategory');
+        if (mealCategorySelect) {
+            mealCategorySelect.value = mealType;
+        }
         this.currentFoodSearch = { mealType, selectedFood: null };
+        
+        // Clear previous search
+        const foodSearch = document.getElementById('foodSearch');
+        if (foodSearch) foodSearch.value = '';
+        const suggestions = document.getElementById('foodSuggestions');
+        if (suggestions) suggestions.innerHTML = '';
     }
 
     searchFood(query) {
@@ -592,166 +670,208 @@ class FitTrackerApp {
             return;
         }
 
-        const suggestions = this.nutritionManager.searchFoods(query);
-        const container = document.getElementById('foodSuggestions');
-        
-        container.innerHTML = suggestions.slice(0, 8).map(food => `
-            <div class="food-suggestion" data-food-id="${food.id}">
-                ${food.name} (${food.calories} cal)
-            </div>
-        `).join('');
+        try {
+            const suggestions = this.nutritionManager.searchFoods(query);
+            const container = document.getElementById('foodSuggestions');
+            
+            if (container) {
+                container.innerHTML = suggestions.slice(0, 8).map(food => `
+                    <div class="food-suggestion" data-food-id="${food.id}">
+                        ${food.name} (${food.calories} cal)
+                    </div>
+                `).join('');
 
-        // Add click listeners to suggestions
-        container.querySelectorAll('.food-suggestion').forEach(suggestion => {
-            suggestion.addEventListener('click', () => {
-                const foodId = suggestion.dataset.foodId;
-                this.selectFood(foodId);
-            });
-        });
+                // Add click listeners to suggestions
+                container.querySelectorAll('.food-suggestion').forEach(suggestion => {
+                    suggestion.addEventListener('click', () => {
+                        const foodId = suggestion.dataset.foodId;
+                        this.selectFood(foodId);
+                    });
+                });
+            }
+        } catch (error) {
+            console.error('Food search error:', error);
+        }
     }
 
     selectFood(foodId) {
-        const food = this.nutritionManager.getFoodById(foodId);
-        if (food) {
-            this.currentFoodSearch.selectedFood = food;
-            document.getElementById('selectedFoodName').value = food.name;
-            document.getElementById('foodQuantity').value = '1';
-            this.updateNutritionPreview();
-            
-            // Clear search and suggestions
-            document.getElementById('foodSearch').value = '';
-            document.getElementById('foodSuggestions').innerHTML = '';
+        try {
+            const food = this.nutritionManager.getFoodById(foodId);
+            if (food) {
+                this.currentFoodSearch.selectedFood = food;
+                document.getElementById('selectedFoodName').value = food.name;
+                document.getElementById('foodQuantity').value = '1';
+                this.updateNutritionPreview();
+                
+                // Clear search and suggestions
+                document.getElementById('foodSearch').value = '';
+                document.getElementById('foodSuggestions').innerHTML = '';
+            }
+        } catch (error) {
+            console.error('Select food error:', error);
         }
     }
 
     adjustFoodQuantity(delta) {
-        const quantityInput = document.getElementById('foodQuantity');
-        const currentQuantity = parseFloat(quantityInput.value) || 1;
-        const newQuantity = Math.max(0.1, currentQuantity + delta * 0.5);
-        quantityInput.value = newQuantity.toFixed(1);
-        this.updateNutritionPreview();
+        try {
+            const quantityInput = document.getElementById('foodQuantity');
+            const currentQuantity = parseFloat(quantityInput.value) || 1;
+            const newQuantity = Math.max(0.1, currentQuantity + delta * 0.5);
+            quantityInput.value = newQuantity.toFixed(1);
+            this.updateNutritionPreview();
+        } catch (error) {
+            console.error('Adjust quantity error:', error);
+        }
     }
 
     updateNutritionPreview() {
-        const food = this.currentFoodSearch?.selectedFood;
-        const quantity = parseFloat(document.getElementById('foodQuantity').value) || 1;
-        
-        if (!food) return;
+        try {
+            const food = this.currentFoodSearch?.selectedFood;
+            const quantity = parseFloat(document.getElementById('foodQuantity')?.value) || 1;
+            
+            if (!food) return;
 
-        document.getElementById('previewCalories').textContent = Math.round(food.calories * quantity);
-        document.getElementById('previewProtein').textContent = `${Math.round(food.protein * quantity)}g`;
-        document.getElementById('previewCarbs').textContent = `${Math.round(food.carbs * quantity)}g`;
-        document.getElementById('previewFat').textContent = `${Math.round(food.fat * quantity)}g`;
+            document.getElementById('previewCalories').textContent = Math.round(food.calories * quantity);
+            document.getElementById('previewProtein').textContent = `${Math.round(food.protein * quantity)}g`;
+            document.getElementById('previewCarbs').textContent = `${Math.round(food.carbs * quantity)}g`;
+            document.getElementById('previewFat').textContent = `${Math.round(food.fat * quantity)}g`;
+        } catch (error) {
+            console.error('Nutrition preview error:', error);
+        }
     }
 
     confirmFoodLog() {
-        const food = this.currentFoodSearch?.selectedFood;
-        const quantity = parseFloat(document.getElementById('foodQuantity').value) || 1;
-        const mealType = document.getElementById('mealCategory').value;
-        
-        if (food) {
-            this.nutritionManager.logFood(food, quantity, mealType);
-            this.modalManager.closeModal();
-            this.toastManager.showToast(`${food.name} logged to ${mealType}!`, 'success');
-            this.updateDashboardStats();
-            this.nutritionManager.refreshNutritionScreen();
-            this.achievementManager.checkNutritionAchievements();
+        try {
+            const food = this.currentFoodSearch?.selectedFood;
+            const quantity = parseFloat(document.getElementById('foodQuantity')?.value) || 1;
+            const mealType = document.getElementById('mealCategory')?.value || 'breakfast';
+            
+            if (food) {
+                this.nutritionManager.logFood(food, quantity, mealType);
+                this.modalManager.closeModal();
+                this.toastManager.showToast(`${food.name} logged to ${mealType}!`, 'success');
+                this.updateDashboardStats();
+                this.nutritionManager.refreshNutritionScreen();
+                this.achievementManager.checkNutritionAchievements();
+            } else {
+                this.toastManager.showToast('Please select a food item first', 'error');
+            }
+        } catch (error) {
+            console.error('Food log error:', error);
+            this.toastManager.showToast('Failed to log food', 'error');
         }
     }
 
     scanBarcode() {
-        // Simulate barcode scanning
-        this.toastManager.showToast('Barcode scanner not available in this demo', 'info');
-    }
-
-    // Workout Functions
-    openWorkoutSelector() {
-        this.switchScreen('workouts');
+        this.toastManager.showToast('Barcode scanner coming soon! 📱', 'info');
     }
 
     // Settings
     changeTheme(themeName) {
-        this.userData.updateSetting('theme', themeName);
-        document.body.setAttribute('data-theme', themeName);
-        this.toastManager.showToast(`Theme changed to ${themeName}`, 'success');
+        try {
+            this.userData.updateSetting('theme', themeName);
+            document.body.setAttribute('data-theme', themeName);
+            this.toastManager.showToast(`Theme changed to ${themeName}`, 'success');
+        } catch (error) {
+            console.error('Theme change error:', error);
+        }
     }
 
     changeUnits(units) {
-        this.userData.updateSetting('units', units);
-        this.toastManager.showToast(`Units changed to ${units}`, 'success');
+        try {
+            this.userData.updateSetting('units', units);
+            this.toastManager.showToast(`Units changed to ${units}`, 'success');
+        } catch (error) {
+            console.error('Units change error:', error);
+        }
     }
 
     // Profile Screen
     refreshProfileScreen() {
-        const profile = this.userData.profile;
-        
-        // Update profile display
-        document.getElementById('profileName').textContent = profile.name || 'User';
-        document.getElementById('profileGoal').textContent = this.formatGoalText(profile.goal);
-        document.getElementById('userInitials').textContent = this.getUserInitials(profile.name);
-        
-        // Update profile stats
-        document.getElementById('memberSince').textContent = this.calculateMemberDays();
-        document.getElementById('totalDistance').textContent = `${this.stepTracker.getTotalDistance().toFixed(1)} km`;
-        document.getElementById('totalCaloriesBurned').textContent = this.stepTracker.getTotalCaloriesBurned().toLocaleString();
-        
-        // Update health metrics
-        this.updateHealthMetrics();
-        
-        // Update settings display
-        document.getElementById('themeSelect').value = this.userData.settings.theme;
-        document.getElementById('unitsSelect').value = this.userData.settings.units;
-        document.getElementById('notificationsToggle').checked = this.userData.settings.notifications;
-        document.getElementById('offlineModeToggle').checked = this.userData.settings.offlineMode;
+        try {
+            const profile = this.userData.profile;
+            
+            // Update profile display
+            document.getElementById('profileName').textContent = profile.name || 'User';
+            document.getElementById('profileGoal').textContent = this.formatGoalText(profile.goal);
+            document.getElementById('userInitials').textContent = this.getUserInitials(profile.name);
+            
+            // Update profile stats
+            document.getElementById('memberSince').textContent = this.calculateMemberDays();
+            document.getElementById('totalDistance').textContent = `${this.stepTracker.getTotalDistance().toFixed(1)} km`;
+            document.getElementById('totalCaloriesBurned').textContent = this.stepTracker.getTotalCaloriesBurned().toLocaleString();
+            
+            // Update health metrics
+            this.updateHealthMetrics();
+            
+            // Update settings display
+            document.getElementById('themeSelect').value = this.userData.settings.theme;
+            document.getElementById('unitsSelect').value = this.userData.settings.units;
+            document.getElementById('notificationsToggle').checked = this.userData.settings.notifications;
+            document.getElementById('offlineModeToggle').checked = this.userData.settings.offlineMode;
+        } catch (error) {
+            console.error('Profile refresh error:', error);
+        }
     }
 
     updateHealthMetrics() {
-        const profile = this.userData.profile;
-        
-        // Calculate BMI
-        const bmi = this.calculateBMI(profile.weight, profile.height);
-        document.getElementById('bmiValue').textContent = bmi.toFixed(1);
-        document.getElementById('bmiStatus').textContent = this.getBMIStatus(bmi);
-        
-        // Calculate BMR
-        const bmr = this.calculateBMR(profile.weight, profile.height, profile.age, profile.gender);
-        document.getElementById('bmrValue').textContent = Math.round(bmr);
-        
-        // Calculate TDEE
-        const tdee = this.calculateTDEE(bmr, profile.activityLevel);
-        document.getElementById('tdeeValue').textContent = Math.round(tdee);
-        
-        // Body fat estimate (simplified)
-        const bodyFat = this.estimateBodyFat(bmi, profile.age, profile.gender);
-        document.getElementById('bodyFatValue').textContent = `${bodyFat.toFixed(1)}%`;
+        try {
+            const profile = this.userData.profile;
+            
+            if (!profile.weight || !profile.height) return;
+            
+            // Calculate BMI
+            const bmi = this.calculateBMI(profile.weight, profile.height);
+            document.getElementById('bmiValue').textContent = bmi.toFixed(1);
+            document.getElementById('bmiStatus').textContent = this.getBMIStatus(bmi);
+            
+            // Calculate BMR
+            const bmr = this.calculateBMR(profile.weight, profile.height, profile.age, profile.gender);
+            document.getElementById('bmrValue').textContent = Math.round(bmr);
+            
+            // Calculate TDEE
+            const tdee = this.calculateTDEE(bmr, profile.activityLevel);
+            document.getElementById('tdeeValue').textContent = Math.round(tdee);
+            
+            // Body fat estimate (simplified)
+            const bodyFat = this.estimateBodyFat(bmi, profile.age, profile.gender);
+            document.getElementById('bodyFatValue').textContent = `${bodyFat.toFixed(1)}%`;
+        } catch (error) {
+            console.error('Health metrics error:', error);
+        }
     }
 
     // Data Management
     async exportData() {
-        const exportData = {
-            profile: this.userData.profile,
-            settings: this.userData.settings,
-            workouts: await this.workoutManager.getAllWorkouts(),
-            nutrition: await this.nutritionManager.getAllNutrition(),
-            progress: await this.progressManager.getAllProgress(),
-            achievements: this.achievementManager.getAllAchievements(),
-            steps: this.stepTracker.getAllStepData(),
-            exportDate: new Date().toISOString(),
-            version: this.version
-        };
+        try {
+            const exportData = {
+                profile: this.userData.profile,
+                settings: this.userData.settings,
+                workouts: await this.workoutManager.getAllWorkouts(),
+                nutrition: await this.nutritionManager.getAllNutrition(),
+                progress: await this.progressManager.getAllProgress(),
+                achievements: this.achievementManager.getAllAchievements(),
+                steps: this.stepTracker.getAllStepData(),
+                exportDate: new Date().toISOString(),
+                version: this.version
+            };
 
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `fittracker-data-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        URL.revokeObjectURL(url);
-        this.toastManager.showToast('Data exported successfully!', 'success');
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fittracker-data-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            URL.revokeObjectURL(url);
+            this.toastManager.showToast('Data exported successfully!', 'success');
+        } catch (error) {
+            console.error('Export error:', error);
+            this.toastManager.showToast('Export failed', 'error');
+        }
     }
 
     async syncData() {
@@ -760,13 +880,19 @@ class FitTrackerApp {
             return;
         }
 
-        this.showLoadingScreen();
-        
-        // Simulate data sync
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        this.hideLoadingScreen();
-        this.toastManager.showToast('Data synced successfully!', 'success');
+        try {
+            this.showLoadingScreen();
+            
+            // Simulate data sync
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            this.hideLoadingScreen();
+            this.toastManager.showToast('Data synced successfully!', 'success');
+        } catch (error) {
+            console.error('Sync error:', error);
+            this.hideLoadingScreen();
+            this.toastManager.showToast('Sync failed', 'error');
+        }
     }
 
     confirmResetData() {
@@ -776,11 +902,15 @@ class FitTrackerApp {
     }
 
     resetAllData() {
-        localStorage.clear();
-        this.toastManager.showToast('All data has been reset', 'info');
-        setTimeout(() => {
-            location.reload();
-        }, 2000);
+        try {
+            localStorage.clear();
+            this.toastManager.showToast('All data has been reset', 'info');
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } catch (error) {
+            console.error('Reset error:', error);
+        }
     }
 
     // Offline Support
@@ -801,11 +931,14 @@ class FitTrackerApp {
     }
 
     async syncOfflineData() {
-        // Sync any pending offline data when coming back online
         if (this.isOnline) {
-            await this.workoutManager.syncOfflineWorkouts();
-            await this.nutritionManager.syncOfflineNutrition();
-            await this.progressManager.syncOfflineProgress();
+            try {
+                await this.workoutManager.syncOfflineWorkouts();
+                await this.nutritionManager.syncOfflineNutrition();
+                await this.progressManager.syncOfflineProgress();
+            } catch (error) {
+                console.error('Offline sync error:', error);
+            }
         }
     }
 
@@ -826,21 +959,22 @@ class FitTrackerApp {
         // Check achievements periodically
         setInterval(() => {
             this.achievementManager.checkAllAchievements();
-        }, 300000); // Every 5 minutes
-
-        // Step tracking updates
-        setInterval(() => {
-            this.stepTracker.updateDisplay();
-        }, 1000);
+        }, 300000);
     }
 
     // Utility Functions
     showLoadingScreen() {
-        document.getElementById('loadingScreen')?.classList.remove('hidden');
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.classList.remove('hidden');
+        }
     }
 
     hideLoadingScreen() {
-        document.getElementById('loadingScreen')?.classList.add('hidden');
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.classList.add('hidden');
+        }
     }
 
     getActivityIcon(type) {
@@ -880,12 +1014,12 @@ class FitTrackerApp {
 
     getUserInitials(name) {
         if (!name) return 'U';
-        return name.split(' ').map(n => n[0]).join('').toUpperCase();
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
     }
 
     calculateMemberDays() {
         const joinDate = this.userData.profile.joinDate || Date.now();
-        return Math.floor((Date.now() - joinDate) / (1000 * 60 * 60 * 24));
+        return Math.max(1, Math.floor((Date.now() - joinDate) / (1000 * 60 * 60 * 24)));
     }
 
     calculateBMI(weight, height) {
@@ -919,12 +1053,12 @@ class FitTrackerApp {
     }
 
     estimateBodyFat(bmi, age, gender) {
-        // Simplified body fat estimation
         let bodyFat = (1.2 * bmi) + (0.23 * age) - 16.2;
         if (gender === 'female') bodyFat += 5.4;
         return Math.max(3, Math.min(50, bodyFat));
     }
 
+    // Delegation methods for manager classes
     searchExercises(query) {
         this.workoutManager.searchExercises(query);
     }
@@ -942,7 +1076,7 @@ class FitTrackerApp {
     }
 }
 
-// Additional Manager Classes
+// Manager Classes with error handling
 class UserDataManager {
     constructor() {
         this.profile = {};
@@ -960,43 +1094,56 @@ class UserDataManager {
     }
 
     async load() {
-        const savedProfile = localStorage.getItem('fittracker_profile');
-        const savedSettings = localStorage.getItem('fittracker_settings');
-        const savedOnboarding = localStorage.getItem('fittracker_onboarding');
+        try {
+            const savedProfile = localStorage.getItem('fittracker_profile');
+            const savedSettings = localStorage.getItem('fittracker_settings');
+            const savedOnboarding = localStorage.getItem('fittracker_onboarding');
 
-        if (savedProfile) {
-            this.profile = JSON.parse(savedProfile);
+            if (savedProfile) {
+                this.profile = JSON.parse(savedProfile);
+            }
+
+            if (savedSettings) {
+                this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
+            }
+
+            this.onboardingComplete = savedOnboarding === 'true';
+        } catch (error) {
+            console.error('User data load error:', error);
         }
-
-        if (savedSettings) {
-            this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
-        }
-
-        this.onboardingComplete = savedOnboarding === 'true';
     }
 
     async save() {
-        localStorage.setItem('fittracker_profile', JSON.stringify(this.profile));
-        localStorage.setItem('fittracker_settings', JSON.stringify(this.settings));
-        localStorage.setItem('fittracker_onboarding', this.onboardingComplete.toString());
+        try {
+            localStorage.setItem('fittracker_profile', JSON.stringify(this.profile));
+            localStorage.setItem('fittracker_settings', JSON.stringify(this.settings));
+            localStorage.setItem('fittracker_onboarding', this.onboardingComplete.toString());
+        } catch (error) {
+            console.error('User data save error:', error);
+        }
     }
 
     async completeOnboarding(userData) {
-        this.profile = {
-            ...userData,
-            joinDate: Date.now(),
-            id: 'user_' + Date.now()
-        };
-        
-        this.settings = {
-            ...this.settings,
-            stepGoal: userData.stepGoal,
-            waterGoal: userData.waterGoal,
-            workoutGoal: userData.workoutGoal
-        };
-        
-        this.onboardingComplete = true;
-        await this.save();
+        try {
+            this.profile = {
+                ...userData,
+                joinDate: Date.now(),
+                id: 'user_' + Date.now()
+            };
+            
+            this.settings = {
+                ...this.settings,
+                stepGoal: userData.stepGoal,
+                waterGoal: userData.waterGoal,
+                workoutGoal: userData.workoutGoal
+            };
+            
+            this.onboardingComplete = true;
+            await this.save();
+        } catch (error) {
+            console.error('Onboarding completion error:', error);
+            throw error;
+        }
     }
 
     isOnboardingComplete() {
@@ -1037,20 +1184,33 @@ class WorkoutManager {
     }
 
     async init() {
-        await this.loadWorkouts();
-        this.renderWorkoutCategories();
-        this.renderExerciseLibrary();
+        try {
+            await this.loadWorkouts();
+            this.renderWorkoutCategories();
+            this.renderExerciseLibrary();
+        } catch (error) {
+            console.error('Workout manager init error:', error);
+        }
     }
 
     async loadWorkouts() {
-        const saved = localStorage.getItem('fittracker_workouts');
-        if (saved) {
-            this.workouts = JSON.parse(saved);
+        try {
+            const saved = localStorage.getItem('fittracker_workouts');
+            if (saved) {
+                this.workouts = JSON.parse(saved);
+            }
+        } catch (error) {
+            console.error('Workout load error:', error);
+            this.workouts = [];
         }
     }
 
     async saveWorkouts() {
-        localStorage.setItem('fittracker_workouts', JSON.stringify(this.workouts));
+        try {
+            localStorage.setItem('fittracker_workouts', JSON.stringify(this.workouts));
+        } catch (error) {
+            console.error('Workout save error:', error);
+        }
     }
 
     renderWorkoutCategories() {
@@ -1137,13 +1297,11 @@ class WorkoutManager {
     selectExercise(exerciseId) {
         const exercise = this.exercises.find(ex => ex.id === exerciseId);
         if (exercise) {
-            // Show exercise details or start workout
-            console.log('Selected exercise:', exercise);
+            window.fitTrackerApp?.toastManager?.showToast(`Selected: ${exercise.name}`, 'info');
         }
     }
 
     showWorkoutsByCategory(category) {
-        // Filter exercises by category and show them
         this.filterExercises(category);
     }
 
@@ -1162,7 +1320,6 @@ class WorkoutManager {
     }
 
     async syncOfflineWorkouts() {
-        // Sync offline workouts when back online
         console.log('Syncing offline workouts...');
     }
 }
@@ -1176,7 +1333,10 @@ class NutritionManager {
             { id: "brown_rice", name: "Brown Rice (1 cup)", category: "grains", calories: 216, protein: 5, carbs: 45, fat: 1.8 },
             { id: "broccoli", name: "Broccoli (1 cup)", category: "vegetables", calories: 25, protein: 3, carbs: 5, fat: 0.3 },
             { id: "salmon", name: "Salmon (100g)", category: "proteins", calories: 208, protein: 25, carbs: 0, fat: 12 },
-            { id: "greek_yogurt", name: "Greek Yogurt (1 cup)", category: "dairy", calories: 100, protein: 17, carbs: 6, fat: 0 }
+            { id: "greek_yogurt", name: "Greek Yogurt (1 cup)", category: "dairy", calories: 100, protein: 17, carbs: 6, fat: 0 },
+            { id: "eggs", name: "Eggs (2 large)", category: "proteins", calories: 140, protein: 12, carbs: 1, fat: 10 },
+            { id: "oatmeal", name: "Oatmeal (1 cup)", category: "grains", calories: 154, protein: 6, carbs: 28, fat: 3 },
+            { id: "almonds", name: "Almonds (1 oz)", category: "nuts", calories: 164, protein: 6, carbs: 6, fat: 14 }
         ];
         
         this.nutritionLog = [];
@@ -1184,25 +1344,39 @@ class NutritionManager {
     }
 
     async init() {
-        await this.loadNutritionData();
+        try {
+            await this.loadNutritionData();
+        } catch (error) {
+            console.error('Nutrition manager init error:', error);
+        }
     }
 
     async loadNutritionData() {
-        const savedNutrition = localStorage.getItem('fittracker_nutrition');
-        const savedWater = localStorage.getItem('fittracker_water');
+        try {
+            const savedNutrition = localStorage.getItem('fittracker_nutrition');
+            const savedWater = localStorage.getItem('fittracker_water');
 
-        if (savedNutrition) {
-            this.nutritionLog = JSON.parse(savedNutrition);
-        }
+            if (savedNutrition) {
+                this.nutritionLog = JSON.parse(savedNutrition);
+            }
 
-        if (savedWater) {
-            this.waterLog = JSON.parse(savedWater);
+            if (savedWater) {
+                this.waterLog = JSON.parse(savedWater);
+            }
+        } catch (error) {
+            console.error('Nutrition data load error:', error);
+            this.nutritionLog = [];
+            this.waterLog = [];
         }
     }
 
     async saveNutritionData() {
-        localStorage.setItem('fittracker_nutrition', JSON.stringify(this.nutritionLog));
-        localStorage.setItem('fittracker_water', JSON.stringify(this.waterLog));
+        try {
+            localStorage.setItem('fittracker_nutrition', JSON.stringify(this.nutritionLog));
+            localStorage.setItem('fittracker_water', JSON.stringify(this.waterLog));
+        } catch (error) {
+            console.error('Nutrition data save error:', error);
+        }
     }
 
     searchFoods(query) {
@@ -1216,109 +1390,140 @@ class NutritionManager {
     }
 
     logFood(food, quantity, mealType) {
-        const entry = {
-            id: Date.now(),
-            food: { ...food },
-            quantity,
-            mealType,
-            timestamp: Date.now(),
-            date: new Date().toISOString().split('T')[0]
-        };
+        try {
+            const entry = {
+                id: Date.now(),
+                food: { ...food },
+                quantity,
+                mealType,
+                timestamp: Date.now(),
+                date: new Date().toISOString().split('T')[0]
+            };
 
-        this.nutritionLog.push(entry);
-        this.saveNutritionData();
+            this.nutritionLog.push(entry);
+            this.saveNutritionData();
+        } catch (error) {
+            console.error('Food log error:', error);
+        }
     }
 
     addWater(glasses = 1) {
-        const entry = {
-            id: Date.now(),
-            glasses,
-            timestamp: Date.now(),
-            date: new Date().toISOString().split('T')[0]
-        };
+        try {
+            const entry = {
+                id: Date.now(),
+                glasses,
+                timestamp: Date.now(),
+                date: new Date().toISOString().split('T')[0]
+            };
 
-        this.waterLog.push(entry);
-        this.saveNutritionData();
+            this.waterLog.push(entry);
+            this.saveNutritionData();
+        } catch (error) {
+            console.error('Add water error:', error);
+        }
     }
 
     removeWater(glasses = 1) {
-        const today = new Date().toISOString().split('T')[0];
-        const todayEntries = this.waterLog.filter(entry => entry.date === today);
-        
-        if (todayEntries.length > 0) {
-            const lastEntry = todayEntries[todayEntries.length - 1];
-            if (lastEntry.glasses > glasses) {
-                lastEntry.glasses -= glasses;
-            } else {
-                this.waterLog = this.waterLog.filter(entry => entry.id !== lastEntry.id);
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const todayEntries = this.waterLog.filter(entry => entry.date === today);
+            
+            if (todayEntries.length > 0) {
+                const lastEntry = todayEntries[todayEntries.length - 1];
+                if (lastEntry.glasses > glasses) {
+                    lastEntry.glasses -= glasses;
+                } else {
+                    this.waterLog = this.waterLog.filter(entry => entry.id !== lastEntry.id);
+                }
+                this.saveNutritionData();
             }
-            this.saveNutritionData();
+        } catch (error) {
+            console.error('Remove water error:', error);
         }
     }
 
     async getTodayCalories() {
-        const today = new Date().toISOString().split('T')[0];
-        return this.nutritionLog
-            .filter(entry => entry.date === today)
-            .reduce((total, entry) => total + (entry.food.calories * entry.quantity), 0);
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            return this.nutritionLog
+                .filter(entry => entry.date === today)
+                .reduce((total, entry) => total + (entry.food.calories * entry.quantity), 0);
+        } catch (error) {
+            console.error('Today calories error:', error);
+            return 0;
+        }
     }
 
     getTodayWater() {
-        const today = new Date().toISOString().split('T')[0];
-        return this.waterLog
-            .filter(entry => entry.date === today)
-            .reduce((total, entry) => total + entry.glasses, 0);
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            return this.waterLog
+                .filter(entry => entry.date === today)
+                .reduce((total, entry) => total + entry.glasses, 0);
+        } catch (error) {
+            console.error('Today water error:', error);
+            return 0;
+        }
     }
 
     refreshNutritionScreen() {
-        this.updateNutritionSummary();
-        this.updateMealCategories();
+        try {
+            this.updateNutritionSummary();
+            this.updateMealCategories();
+        } catch (error) {
+            console.error('Nutrition screen refresh error:', error);
+        }
     }
 
     updateNutritionSummary() {
-        // Update the nutrition summary display
         this.getTodayCalories().then(calories => {
-            document.getElementById('caloriesConsumed').textContent = Math.round(calories);
+            const element = document.getElementById('caloriesConsumed');
+            if (element) {
+                element.textContent = Math.round(calories);
+            }
         });
     }
 
     updateMealCategories() {
-        // Update meal category displays
-        const today = new Date().toISOString().split('T')[0];
-        const todayEntries = this.nutritionLog.filter(entry => entry.date === today);
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const todayEntries = this.nutritionLog.filter(entry => entry.date === today);
 
-        ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(mealType => {
-            const mealEntries = todayEntries.filter(entry => entry.mealType === mealType);
-            const calories = mealEntries.reduce((total, entry) => total + (entry.food.calories * entry.quantity), 0);
-            
-            const caloriesElement = document.getElementById(`${mealType}Calories`);
-            if (caloriesElement) {
-                caloriesElement.textContent = `${Math.round(calories)} cal`;
-            }
-
-            const itemsContainer = document.getElementById(`${mealType}Items`);
-            if (itemsContainer) {
-                if (mealEntries.length === 0) {
-                    itemsContainer.innerHTML = '<button class="add-food-btn">+ Add Food</button>';
-                } else {
-                    const itemsHTML = mealEntries.map(entry => `
-                        <div class="food-item">
-                            <span class="food-name">${entry.food.name} (${entry.quantity}x)</span>
-                            <span class="food-calories">${Math.round(entry.food.calories * entry.quantity)} cal</span>
-                        </div>
-                    `).join('');
-                    itemsContainer.innerHTML = itemsHTML + '<button class="add-food-btn">+ Add Food</button>';
-                }
+            ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(mealType => {
+                const mealEntries = todayEntries.filter(entry => entry.mealType === mealType);
+                const calories = mealEntries.reduce((total, entry) => total + (entry.food.calories * entry.quantity), 0);
                 
-                // Re-add click listeners to add food buttons
-                const addBtn = itemsContainer.querySelector('.add-food-btn');
-                if (addBtn) {
-                    addBtn.addEventListener('click', () => {
-                        window.fitTrackerApp.openFoodSearch(mealType);
-                    });
+                const caloriesElement = document.getElementById(`${mealType}Calories`);
+                if (caloriesElement) {
+                    caloriesElement.textContent = `${Math.round(calories)} cal`;
                 }
-            }
-        });
+
+                const itemsContainer = document.getElementById(`${mealType}Items`);
+                if (itemsContainer) {
+                    if (mealEntries.length === 0) {
+                        itemsContainer.innerHTML = '<button class="add-food-btn">+ Add Food</button>';
+                    } else {
+                        const itemsHTML = mealEntries.map(entry => `
+                            <div class="food-item">
+                                <span class="food-name">${entry.food.name} (${entry.quantity}x)</span>
+                                <span class="food-calories">${Math.round(entry.food.calories * entry.quantity)} cal</span>
+                            </div>
+                        `).join('');
+                        itemsContainer.innerHTML = itemsHTML + '<button class="add-food-btn">+ Add Food</button>';
+                    }
+                    
+                    // Re-add click listeners to add food buttons
+                    const addBtn = itemsContainer.querySelector('.add-food-btn');
+                    if (addBtn) {
+                        addBtn.addEventListener('click', () => {
+                            window.fitTrackerApp.openFoodSearch(mealType);
+                        });
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Meal categories update error:', error);
+        }
     }
 
     async getAllNutrition() {
@@ -1329,7 +1534,6 @@ class NutritionManager {
     }
 
     async syncOfflineNutrition() {
-        // Sync offline nutrition when back online
         console.log('Syncing offline nutrition...');
     }
 }
@@ -1342,75 +1546,107 @@ class ProgressManager {
     }
 
     async init() {
-        await this.loadProgressData();
+        try {
+            await this.loadProgressData();
+        } catch (error) {
+            console.error('Progress manager init error:', error);
+        }
     }
 
     async loadProgressData() {
-        const savedProgress = localStorage.getItem('fittracker_progress');
-        const savedMeasurements = localStorage.getItem('fittracker_measurements');
-        const savedPhotos = localStorage.getItem('fittracker_photos');
+        try {
+            const savedProgress = localStorage.getItem('fittracker_progress');
+            const savedMeasurements = localStorage.getItem('fittracker_measurements');
+            const savedPhotos = localStorage.getItem('fittracker_photos');
 
-        if (savedProgress) {
-            this.progressData = JSON.parse(savedProgress);
-        }
+            if (savedProgress) {
+                this.progressData = JSON.parse(savedProgress);
+            }
 
-        if (savedMeasurements) {
-            this.measurements = JSON.parse(savedMeasurements);
-        }
+            if (savedMeasurements) {
+                this.measurements = JSON.parse(savedMeasurements);
+            }
 
-        if (savedPhotos) {
-            this.photos = JSON.parse(savedPhotos);
+            if (savedPhotos) {
+                this.photos = JSON.parse(savedPhotos);
+            }
+        } catch (error) {
+            console.error('Progress data load error:', error);
+            this.progressData = [];
+            this.measurements = [];
+            this.photos = [];
         }
     }
 
     async saveProgressData() {
-        localStorage.setItem('fittracker_progress', JSON.stringify(this.progressData));
-        localStorage.setItem('fittracker_measurements', JSON.stringify(this.measurements));
-        localStorage.setItem('fittracker_photos', JSON.stringify(this.photos));
-    }
-
-    getRecentActivities() {
-        // Return recent activities from various sources
-        return this.progressData
-            .slice(-10)
-            .reverse();
-    }
-
-    refreshProgressScreen() {
-        this.updateProgressCharts();
-        this.updateMeasurements();
-    }
-
-    updateProgressCharts() {
-        // Update progress charts
-        const canvas = document.getElementById('progressChart');
-        if (canvas && window.Chart) {
-            // Implementation would create Chart.js charts here
-            console.log('Updating progress charts...');
+        try {
+            localStorage.setItem('fittracker_progress', JSON.stringify(this.progressData));
+            localStorage.setItem('fittracker_measurements', JSON.stringify(this.measurements));
+            localStorage.setItem('fittracker_photos', JSON.stringify(this.photos));
+        } catch (error) {
+            console.error('Progress data save error:', error);
         }
     }
 
+    getRecentActivities() {
+        // Generate some sample activities for demonstration
+        const sampleActivities = [
+            { type: 'water', name: 'Drank 8 glasses of water', timestamp: Date.now() - 1000 * 60 * 30 },
+            { type: 'steps', name: 'Walked 2,500 steps', timestamp: Date.now() - 1000 * 60 * 60 * 2 },
+            { type: 'nutrition', name: 'Logged breakfast', timestamp: Date.now() - 1000 * 60 * 60 * 4 }
+        ];
+
+        return [...this.progressData, ...sampleActivities]
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .slice(0, 10);
+    }
+
+    refreshProgressScreen() {
+        try {
+            this.updateProgressCharts();
+            this.updateMeasurements();
+        } catch (error) {
+            console.error('Progress screen refresh error:', error);
+        }
+    }
+
+    updateProgressCharts() {
+        // Chart implementation would go here
+        console.log('Updating progress charts...');
+    }
+
     updateMeasurements() {
-        // Update measurements display
-        if (this.measurements.length > 0) {
-            const latest = this.measurements[this.measurements.length - 1];
-            document.getElementById('latestWeight').textContent = `${latest.weight} kg`;
-            if (latest.bodyFat) {
-                document.getElementById('latestBodyFat').textContent = `${latest.bodyFat}%`;
+        try {
+            if (this.measurements.length > 0) {
+                const latest = this.measurements[this.measurements.length - 1];
+                const weightElement = document.getElementById('latestWeight');
+                const bodyFatElement = document.getElementById('latestBodyFat');
+                
+                if (weightElement) weightElement.textContent = `${latest.weight} kg`;
+                if (bodyFatElement && latest.bodyFat) {
+                    bodyFatElement.textContent = `${latest.bodyFat}%`;
+                }
             }
+        } catch (error) {
+            console.error('Measurements update error:', error);
         }
     }
 
     updatePeriod(period) {
-        // Update charts based on selected period
         console.log('Updating period to:', period);
     }
 
     switchChart(chartType) {
-        // Switch between different chart types
-        document.querySelectorAll('.chart-tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelector(`[data-chart="${chartType}"]`).classList.add('active');
-        console.log('Switching to chart:', chartType);
+        try {
+            document.querySelectorAll('.chart-tab').forEach(tab => tab.classList.remove('active'));
+            const activeTab = document.querySelector(`[data-chart="${chartType}"]`);
+            if (activeTab) {
+                activeTab.classList.add('active');
+            }
+            console.log('Switching to chart:', chartType);
+        } catch (error) {
+            console.error('Chart switch error:', error);
+        }
     }
 
     async getAllProgress() {
@@ -1422,7 +1658,6 @@ class ProgressManager {
     }
 
     async syncOfflineProgress() {
-        // Sync offline progress when back online
         console.log('Syncing offline progress...');
     }
 }
@@ -1430,33 +1665,45 @@ class ProgressManager {
 class AchievementManager {
     constructor() {
         this.achievements = [
-            { id: "first_workout", name: "First Steps", description: "Complete your first workout", icon: "🎯", threshold: 1, unlocked: false, type: "workout" },
-            { id: "week_streak", name: "Week Warrior", description: "Work out 7 days in a row", icon: "🔥", threshold: 7, unlocked: false, type: "streak" },
-            { id: "calorie_goal", name: "Nutrition Master", description: "Hit your calorie goal for 3 days", icon: "🎊", threshold: 3, unlocked: false, type: "nutrition" },
+            { id: "first_steps", name: "First Steps", description: "Welcome to FitTracker!", icon: "🎯", threshold: 1, unlocked: false, type: "welcome" },
+            { id: "hydration_hero", name: "Hydration Hero", description: "Drink 8 glasses of water in a day", icon: "💧", threshold: 8, unlocked: false, type: "water" },
             { id: "step_master", name: "Step Master", description: "Walk 10,000 steps in a day", icon: "👣", threshold: 10000, unlocked: false, type: "steps" },
-            { id: "water_hero", name: "Hydration Hero", description: "Drink 8 glasses of water in a day", icon: "💧", threshold: 8, unlocked: false, type: "water" },
-            { id: "workout_variety", name: "Variety Champion", description: "Try 5 different workout types", icon: "🌟", threshold: 5, unlocked: false, type: "variety" }
+            { id: "nutrition_tracker", name: "Nutrition Tracker", description: "Log your first meal", icon: "🍽️", threshold: 1, unlocked: false, type: "nutrition" },
+            { id: "week_warrior", name: "Week Warrior", description: "Stay active for 7 days", icon: "🔥", threshold: 7, unlocked: false, type: "streak" },
+            { id: "goal_crusher", name: "Goal Crusher", description: "Hit all daily goals", icon: "🏆", threshold: 1, unlocked: false, type: "goals" }
         ];
     }
 
     async init() {
-        await this.loadAchievements();
-        this.renderAchievements();
+        try {
+            await this.loadAchievements();
+            this.renderAchievements();
+        } catch (error) {
+            console.error('Achievement manager init error:', error);
+        }
     }
 
     async loadAchievements() {
-        const saved = localStorage.getItem('fittracker_achievements');
-        if (saved) {
-            const savedAchievements = JSON.parse(saved);
-            this.achievements = this.achievements.map(achievement => {
-                const saved = savedAchievements.find(s => s.id === achievement.id);
-                return saved ? { ...achievement, unlocked: saved.unlocked } : achievement;
-            });
+        try {
+            const saved = localStorage.getItem('fittracker_achievements');
+            if (saved) {
+                const savedAchievements = JSON.parse(saved);
+                this.achievements = this.achievements.map(achievement => {
+                    const saved = savedAchievements.find(s => s.id === achievement.id);
+                    return saved ? { ...achievement, unlocked: saved.unlocked } : achievement;
+                });
+            }
+        } catch (error) {
+            console.error('Achievements load error:', error);
         }
     }
 
     async saveAchievements() {
-        localStorage.setItem('fittracker_achievements', JSON.stringify(this.achievements));
+        try {
+            localStorage.setItem('fittracker_achievements', JSON.stringify(this.achievements));
+        } catch (error) {
+            console.error('Achievements save error:', error);
+        }
     }
 
     renderAchievements() {
@@ -1487,13 +1734,18 @@ class AchievementManager {
     checkAllAchievements() {
         this.checkWaterAchievements();
         this.checkNutritionAchievements();
-        this.checkWorkoutAchievements();
-        this.checkStepAchievements();
+        this.checkWelcomeAchievement();
+    }
+
+    checkWelcomeAchievement() {
+        const welcomeAchievement = this.achievements.find(a => a.id === 'first_steps');
+        if (!welcomeAchievement.unlocked && window.fitTrackerApp?.userData?.isOnboardingComplete()) {
+            this.unlockAchievement(welcomeAchievement);
+        }
     }
 
     checkWaterAchievements() {
-        // Check water-related achievements
-        const waterAchievement = this.achievements.find(a => a.id === 'water_hero');
+        const waterAchievement = this.achievements.find(a => a.id === 'hydration_hero');
         if (!waterAchievement.unlocked) {
             const todayWater = window.fitTrackerApp?.nutritionManager?.getTodayWater() || 0;
             if (todayWater >= waterAchievement.threshold) {
@@ -1503,51 +1755,36 @@ class AchievementManager {
     }
 
     checkNutritionAchievements() {
-        // Check nutrition-related achievements
-        const nutritionAchievement = this.achievements.find(a => a.id === 'calorie_goal');
+        const nutritionAchievement = this.achievements.find(a => a.id === 'nutrition_tracker');
         if (!nutritionAchievement.unlocked) {
-            // This would check if user hit calorie goals for 3 days
-            console.log('Checking nutrition achievements...');
-        }
-    }
-
-    checkWorkoutAchievements() {
-        // Check workout-related achievements
-        const workoutAchievement = this.achievements.find(a => a.id === 'first_workout');
-        if (!workoutAchievement.unlocked) {
-            // This would check if user completed first workout
-            console.log('Checking workout achievements...');
-        }
-    }
-
-    checkStepAchievements() {
-        // Check step-related achievements
-        const stepAchievement = this.achievements.find(a => a.id === 'step_master');
-        if (!stepAchievement.unlocked) {
-            const todaySteps = window.fitTrackerApp?.stepTracker?.getTodaySteps() || 0;
-            if (todaySteps >= stepAchievement.threshold) {
-                this.unlockAchievement(stepAchievement);
+            const nutritionLog = window.fitTrackerApp?.nutritionManager?.nutritionLog || [];
+            if (nutritionLog.length > 0) {
+                this.unlockAchievement(nutritionAchievement);
             }
         }
     }
 
     unlockAchievement(achievement) {
-        achievement.unlocked = true;
-        this.saveAchievements();
-        this.renderAchievements();
-        
-        // Show celebration
-        window.fitTrackerApp?.toastManager?.showToast(
-            `🎉 Achievement unlocked: ${achievement.name}!`, 
-            'success'
-        );
+        try {
+            achievement.unlocked = true;
+            this.saveAchievements();
+            this.renderAchievements();
+            
+            // Show celebration
+            window.fitTrackerApp?.toastManager?.showToast(
+                `🎉 Achievement unlocked: ${achievement.name}!`, 
+                'success'
+            );
 
-        // Show notification if supported
-        if (Notification.permission === 'granted') {
-            new Notification('Achievement Unlocked!', {
-                body: achievement.name,
-                icon: '/icon-192.png'
-            });
+            // Show notification if supported
+            if (Notification.permission === 'granted') {
+                new Notification('Achievement Unlocked!', {
+                    body: achievement.name,
+                    icon: '/icon-192.png'
+                });
+            }
+        } catch (error) {
+            console.error('Achievement unlock error:', error);
         }
     }
 
@@ -1567,21 +1804,34 @@ class StepTracker {
     }
 
     async init() {
-        await this.loadStepData();
-        this.loadTodaysSteps();
+        try {
+            await this.loadStepData();
+            this.loadTodaysSteps();
+        } catch (error) {
+            console.error('Step tracker init error:', error);
+        }
     }
 
     async loadStepData() {
-        const saved = localStorage.getItem('fittracker_steps');
-        if (saved) {
-            this.stepHistory = JSON.parse(saved);
+        try {
+            const saved = localStorage.getItem('fittracker_steps');
+            if (saved) {
+                this.stepHistory = JSON.parse(saved);
+            }
+        } catch (error) {
+            console.error('Step data load error:', error);
+            this.stepHistory = {};
         }
     }
 
     async saveStepData() {
-        const today = new Date().toISOString().split('T')[0];
-        this.stepHistory[today] = this.steps;
-        localStorage.setItem('fittracker_steps', JSON.stringify(this.stepHistory));
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            this.stepHistory[today] = this.steps;
+            localStorage.setItem('fittracker_steps', JSON.stringify(this.stepHistory));
+        } catch (error) {
+            console.error('Step data save error:', error);
+        }
     }
 
     loadTodaysSteps() {
@@ -1602,30 +1852,38 @@ class StepTracker {
     }
 
     processMotionData(event) {
-        const acceleration = event.accelerationIncludingGravity;
-        if (!acceleration || !acceleration.x) return;
+        try {
+            const acceleration = event.accelerationIncludingGravity;
+            if (!acceleration || !acceleration.x) return;
 
-        const { x, y, z } = acceleration;
-        const magnitude = Math.sqrt(x * x + y * y + z * z);
+            const { x, y, z } = acceleration;
+            const magnitude = Math.sqrt(x * x + y * y + z * z);
 
-        if (magnitude > this.stepThreshold) {
-            const prevMagnitude = Math.sqrt(
-                this.lastAcceleration.x * this.lastAcceleration.x +
-                this.lastAcceleration.y * this.lastAcceleration.y +
-                this.lastAcceleration.z * this.lastAcceleration.z
-            );
+            if (magnitude > this.stepThreshold) {
+                const prevMagnitude = Math.sqrt(
+                    this.lastAcceleration.x * this.lastAcceleration.x +
+                    this.lastAcceleration.y * this.lastAcceleration.y +
+                    this.lastAcceleration.z * this.lastAcceleration.z
+                );
 
-            if (magnitude > prevMagnitude) {
-                this.recordStep();
+                if (magnitude > prevMagnitude) {
+                    this.recordStep();
+                }
             }
-        }
 
-        this.lastAcceleration = { x, y, z };
+            this.lastAcceleration = { x, y, z };
+        } catch (error) {
+            console.error('Motion processing error:', error);
+        }
     }
 
     recordStep() {
-        this.steps++;
-        this.saveStepData();
+        try {
+            this.steps++;
+            this.saveStepData();
+        } catch (error) {
+            console.error('Step record error:', error);
+        }
     }
 
     getTodaySteps() {
@@ -1633,14 +1891,24 @@ class StepTracker {
     }
 
     getTotalDistance() {
-        const totalSteps = Object.values(this.stepHistory).reduce((sum, steps) => sum + steps, 0);
-        const averageStrideLength = 0.7; // meters
-        return (totalSteps * averageStrideLength) / 1000; // kilometers
+        try {
+            const totalSteps = Object.values(this.stepHistory).reduce((sum, steps) => sum + steps, 0);
+            const averageStrideLength = 0.7; // meters
+            return (totalSteps * averageStrideLength) / 1000; // kilometers
+        } catch (error) {
+            console.error('Distance calculation error:', error);
+            return 0;
+        }
     }
 
     getTotalCaloriesBurned() {
-        const totalSteps = Object.values(this.stepHistory).reduce((sum, steps) => sum + steps, 0);
-        return Math.round(totalSteps * 0.04); // Rough estimate: 0.04 calories per step
+        try {
+            const totalSteps = Object.values(this.stepHistory).reduce((sum, steps) => sum + steps, 0);
+            return Math.round(totalSteps * 0.04); // Rough estimate: 0.04 calories per step
+        } catch (error) {
+            console.error('Calories calculation error:', error);
+            return 0;
+        }
     }
 
     updateDisplay() {
@@ -1659,24 +1927,37 @@ class ScreenManager {
 
     showWelcome() {
         this.hideAllScreens();
-        document.getElementById('welcomeScreen')?.classList.remove('hidden');
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        if (welcomeScreen) {
+            welcomeScreen.classList.remove('hidden');
+        }
     }
 
     showOnboarding() {
         this.hideAllScreens();
-        document.getElementById('onboardingScreen')?.classList.remove('hidden');
+        const onboardingScreen = document.getElementById('onboardingScreen');
+        if (onboardingScreen) {
+            onboardingScreen.classList.remove('hidden');
+        }
     }
 
     showMainApp() {
         this.hideAllScreens();
-        document.getElementById('mainApp')?.classList.remove('hidden');
+        const mainApp = document.getElementById('mainApp');
+        if (mainApp) {
+            mainApp.classList.remove('hidden');
+        }
         this.switchScreen('dashboard');
     }
 
     hideAllScreens() {
-        document.getElementById('welcomeScreen')?.classList.add('hidden');
-        document.getElementById('onboardingScreen')?.classList.add('hidden');
-        document.getElementById('mainApp')?.classList.add('hidden');
+        const screens = ['welcomeScreen', 'onboardingScreen', 'mainApp'];
+        screens.forEach(screenId => {
+            const screen = document.getElementById(screenId);
+            if (screen) {
+                screen.classList.add('hidden');
+            }
+        });
     }
 
     switchScreen(screenName) {
@@ -1686,13 +1967,19 @@ class ScreenManager {
         });
 
         // Show target screen
-        document.getElementById(`${screenName}Screen`)?.classList.add('active');
+        const targetScreen = document.getElementById(`${screenName}Screen`);
+        if (targetScreen) {
+            targetScreen.classList.add('active');
+        }
 
         // Update navigation
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
-        document.querySelector(`[data-screen="${screenName}"]`)?.classList.add('active');
+        const navItem = document.querySelector(`[data-screen="${screenName}"]`);
+        if (navItem) {
+            navItem.classList.add('active');
+        }
 
         this.currentScreen = screenName;
     }
@@ -1729,95 +2016,70 @@ class ToastManager {
     }
 
     showToast(message, type = 'info') {
-        const toast = document.getElementById('toast');
-        const messageEl = document.querySelector('.toast-message');
-        
-        if (toast && messageEl) {
-            messageEl.textContent = message;
-            toast.className = `toast ${type}`;
+        try {
+            const toast = document.getElementById('toast');
+            const messageEl = document.querySelector('.toast-message');
             
-            if (this.toastTimeout) {
-                clearTimeout(this.toastTimeout);
+            if (toast && messageEl) {
+                messageEl.textContent = message;
+                toast.className = `toast ${type}`;
+                
+                if (this.toastTimeout) {
+                    clearTimeout(this.toastTimeout);
+                }
+                
+                this.toastTimeout = setTimeout(() => {
+                    this.hideToast();
+                }, 4000);
             }
-            
-            this.toastTimeout = setTimeout(() => {
-                this.hideToast();
-            }, 4000);
+        } catch (error) {
+            console.error('Toast show error:', error);
         }
     }
 
     hideToast() {
-        const toast = document.getElementById('toast');
-        if (toast) {
-            toast.classList.add('hidden');
-        }
-        if (this.toastTimeout) {
-            clearTimeout(this.toastTimeout);
-            this.toastTimeout = null;
+        try {
+            const toast = document.getElementById('toast');
+            if (toast) {
+                toast.classList.add('hidden');
+            }
+            if (this.toastTimeout) {
+                clearTimeout(this.toastTimeout);
+                this.toastTimeout = null;
+            }
+        } catch (error) {
+            console.error('Toast hide error:', error);
         }
     }
 }
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.fitTrackerApp = new FitTrackerApp();
-    
-    // Handle page visibility change
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            window.fitTrackerApp.userData.save();
-        }
-    });
-    
-    // Handle before unload
-    window.addEventListener('beforeunload', () => {
-        window.fitTrackerApp.userData.save();
-    });
+    try {
+        window.fitTrackerApp = new FitTrackerApp();
+        
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && window.fitTrackerApp) {
+                window.fitTrackerApp.userData.save();
+            }
+        });
+        
+        // Handle before unload
+        window.addEventListener('beforeunload', () => {
+            if (window.fitTrackerApp) {
+                window.fitTrackerApp.userData.save();
+            }
+        });
+    } catch (error) {
+        console.error('App initialization failed:', error);
+        // Show fallback UI
+        document.body.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; font-family: Arial, sans-serif;">
+                <h1>FitTracker Pro</h1>
+                <p>Loading failed. Please refresh the page.</p>
+                <button onclick="location.reload()" style="padding: 12px 24px; background: #1FB8CD; color: white; border: none; border-radius: 8px; cursor: pointer;">Refresh</button>
+            </div>
+        `;
+    }
 });
-
-// Service Worker Registration
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', async () => {
-        try {
-            // Create a simple service worker inline
-            const swCode = `
-                const CACHE_NAME = 'fittracker-v1';
-                const urlsToCache = [
-                    '/',
-                    '/index.html',
-                    '/style.css',
-                    '/app.js',
-                    'https://cdn.jsdelivr.net/npm/chart.js'
-                ];
-
-                self.addEventListener('install', (event) => {
-                    event.waitUntil(
-                        caches.open(CACHE_NAME)
-                            .then((cache) => cache.addAll(urlsToCache))
-                    );
-                });
-
-                self.addEventListener('fetch', (event) => {
-                    event.respondWith(
-                        caches.match(event.request)
-                            .then((response) => {
-                                if (response) {
-                                    return response;
-                                }
-                                return fetch(event.request);
-                            }
-                        )
-                    );
-                });
-            `;
-            
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            const swUrl = URL.createObjectURL(blob);
-            
-            const registration = await navigator.serviceWorker.register(swUrl);
-            console.log('ServiceWorker registration successful');
-        } catch (error) {
-            console.log('ServiceWorker registration failed: ', error);
-        }
-    });
-}
