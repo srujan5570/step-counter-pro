@@ -3,323 +3,878 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>StepTracker - Step Counter App</title>
+    <title>FitTracker Pro - Complete Fitness Companion</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="manifest" data-href="manifest.json">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1FB8CD">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="StepTracker">
+    <meta name="apple-mobile-web-app-title" content="FitTracker Pro">
+    <meta name="description" content="Complete fitness tracking with offline support">
 </head>
 <body>
-    <!-- Welcome Screen -->
+    <!-- Install Prompt -->
+    <div id="installPrompt" class="install-prompt hidden">
+        <div class="install-content">
+            <div class="install-icon">📱</div>
+            <div class="install-text">
+                <h3>Install FitTracker Pro</h3>
+                <p>Get the full app experience with offline support</p>
+            </div>
+            <div class="install-actions">
+                <button id="installBtn" class="btn btn--primary btn--sm">Install</button>
+                <button id="dismissInstallBtn" class="btn btn--outline btn--sm">Maybe Later</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome & Onboarding -->
     <div id="welcomeScreen" class="screen welcome-screen">
         <div class="welcome-content">
             <div class="app-logo">
                 <div class="logo-circle">
                     <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="9" cy="7" r="4"></circle>
-                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
                     </svg>
                 </div>
             </div>
-            <h1 class="welcome-title">StepTracker</h1>
-            <p class="welcome-subtitle">Your personal fitness companion</p>
+            <h1 class="welcome-title">FitTracker Pro</h1>
+            <p class="welcome-subtitle">Your complete fitness companion</p>
             <div class="welcome-features">
                 <div class="feature-item">
-                    <div class="feature-icon">📱</div>
-                    <span>Real-time step counting</span>
+                    <div class="feature-icon">💪</div>
+                    <span>Comprehensive workout tracking</span>
                 </div>
                 <div class="feature-item">
-                    <div class="feature-icon">🎯</div>
-                    <span>Daily goal tracking</span>
+                    <div class="feature-icon">🥗</div>
+                    <span>Complete nutrition management</span>
                 </div>
                 <div class="feature-item">
                     <div class="feature-icon">📊</div>
-                    <span>Progress analytics</span>
+                    <span>Advanced progress analytics</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🏆</div>
+                    <span>Achievement system & challenges</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">⚡</div>
+                    <span>Works completely offline</span>
                 </div>
             </div>
-            <button id="requestPermissionBtn" class="btn btn--primary btn--lg btn--full-width">
+            <button id="startOnboardingBtn" class="btn btn--primary btn--lg btn--full-width">
                 Get Started
             </button>
-            <p class="permission-note">We need access to your device's motion sensors to count your steps accurately.</p>
+        </div>
+    </div>
+
+    <!-- Onboarding Process -->
+    <div id="onboardingScreen" class="screen onboarding-screen hidden">
+        <div class="onboarding-content">
+            <div class="onboarding-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="onboardingProgress"></div>
+                </div>
+                <span class="progress-text" id="onboardingStep">Step 1 of 4</span>
+            </div>
+
+            <!-- Step 1: Personal Info -->
+            <div class="onboarding-step active" id="step1">
+                <h2>Tell us about yourself</h2>
+                <div class="form-group">
+                    <label class="form-label">Name</label>
+                    <input type="text" id="userName" class="form-control" placeholder="Your name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Age</label>
+                    <input type="number" id="userAge" class="form-control" min="13" max="100" placeholder="25">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Gender</label>
+                    <select id="userGender" class="form-control">
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Height (cm)</label>
+                    <input type="number" id="userHeight" class="form-control" min="100" max="250" placeholder="170">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Weight (kg)</label>
+                    <input type="number" id="userWeight" class="form-control" min="30" max="300" placeholder="70">
+                </div>
+            </div>
+
+            <!-- Step 2: Fitness Goals -->
+            <div class="onboarding-step" id="step2">
+                <h2>What are your fitness goals?</h2>
+                <div class="goal-options">
+                    <div class="goal-option" data-goal="lose_weight">
+                        <div class="goal-icon">⬇️</div>
+                        <div class="goal-name">Lose Weight</div>
+                    </div>
+                    <div class="goal-option" data-goal="gain_muscle">
+                        <div class="goal-icon">💪</div>
+                        <div class="goal-name">Gain Muscle</div>
+                    </div>
+                    <div class="goal-option" data-goal="maintain">
+                        <div class="goal-icon">⚖️</div>
+                        <div class="goal-name">Maintain Weight</div>
+                    </div>
+                    <div class="goal-option" data-goal="endurance">
+                        <div class="goal-icon">🏃</div>
+                        <div class="goal-name">Build Endurance</div>
+                    </div>
+                    <div class="goal-option" data-goal="general">
+                        <div class="goal-icon">🎯</div>
+                        <div class="goal-name">General Fitness</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Activity Level</label>
+                    <select id="activityLevel" class="form-control">
+                        <option value="sedentary">Sedentary (little/no exercise)</option>
+                        <option value="light">Light (light exercise 1-3 days/week)</option>
+                        <option value="moderate">Moderate (moderate exercise 3-5 days/week)</option>
+                        <option value="active">Active (hard exercise 6-7 days/week)</option>
+                        <option value="extra">Extra Active (very hard exercise 2x/day)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Step 3: Daily Goals -->
+            <div class="onboarding-step" id="step3">
+                <h2>Set your daily targets</h2>
+                <div class="goal-setting">
+                    <div class="goal-item">
+                        <label class="form-label">Daily Steps</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="stepGoal" class="form-control" value="10000" min="1000" max="50000">
+                            <span class="unit">steps</span>
+                        </div>
+                    </div>
+                    <div class="goal-item">
+                        <label class="form-label">Water Intake</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="waterGoal" class="form-control" value="8" min="1" max="20">
+                            <span class="unit">glasses</span>
+                        </div>
+                    </div>
+                    <div class="goal-item">
+                        <label class="form-label">Workout Duration</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="workoutGoal" class="form-control" value="30" min="10" max="180">
+                            <span class="unit">minutes</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Permissions -->
+            <div class="onboarding-step" id="step4">
+                <h2>Enable features for better tracking</h2>
+                <div class="permission-requests">
+                    <div class="permission-item">
+                        <div class="permission-info">
+                            <div class="permission-icon">📱</div>
+                            <div class="permission-details">
+                                <h4>Motion Sensors</h4>
+                                <p>For accurate step counting and activity detection</p>
+                            </div>
+                        </div>
+                        <button id="requestMotionBtn" class="btn btn--primary btn--sm">Enable</button>
+                    </div>
+                    <div class="permission-item">
+                        <div class="permission-info">
+                            <div class="permission-icon">📍</div>
+                            <div class="permission-details">
+                                <h4>Location Services</h4>
+                                <p>For GPS tracking during outdoor workouts</p>
+                            </div>
+                        </div>
+                        <button id="requestLocationBtn" class="btn btn--primary btn--sm">Enable</button>
+                    </div>
+                    <div class="permission-item">
+                        <div class="permission-info">
+                            <div class="permission-icon">🔔</div>
+                            <div class="permission-details">
+                                <h4>Notifications</h4>
+                                <p>For workout reminders and achievement alerts</p>
+                            </div>
+                        </div>
+                        <button id="requestNotificationBtn" class="btn btn--primary btn--sm">Enable</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="onboarding-actions">
+                <button id="prevStepBtn" class="btn btn--outline" style="display: none;">Previous</button>
+                <button id="nextStepBtn" class="btn btn--primary">Next</button>
+            </div>
         </div>
     </div>
 
     <!-- Main App Container -->
     <div id="mainApp" class="app-container hidden">
-        <!-- Navigation -->
+        <!-- Bottom Navigation -->
         <nav class="bottom-nav">
             <button class="nav-item active" data-screen="dashboard">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                    <polyline points="9,22 9,12 15,12 15,22"></polyline>
                 </svg>
-                <span>Dashboard</span>
+                <span>Home</span>
             </button>
-            <button class="nav-item" data-screen="history">
+            <button class="nav-item" data-screen="workouts">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 3v5h5"></path>
-                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path>
-                    <path d="M12 7v5l4 2"></path>
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
                 </svg>
-                <span>History</span>
+                <span>Workouts</span>
             </button>
-            <button class="nav-item" data-screen="achievements">
+            <button class="nav-item" data-screen="nutrition">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="8" r="7"></circle>
-                    <polyline points="8.21,13.89 7,23 12,20 17,23 15.79,13.88"></polyline>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM8 17.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM16 13c-1.38 0-2.5-1.12-2.5-2.5S14.62 8 16 8s2.5 1.12 2.5 2.5S17.38 13 16 13z"></path>
                 </svg>
-                <span>Awards</span>
+                <span>Nutrition</span>
             </button>
-            <button class="nav-item" data-screen="settings">
+            <button class="nav-item" data-screen="progress">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 3v18h18"></path>
+                    <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path>
+                </svg>
+                <span>Progress</span>
+            </button>
+            <button class="nav-item" data-screen="profile">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"></path>
                 </svg>
-                <span>Settings</span>
+                <span>Profile</span>
             </button>
         </nav>
 
         <!-- Dashboard Screen -->
         <div id="dashboardScreen" class="screen dashboard-screen active">
             <div class="screen-header">
-                <h2>Today's Progress</h2>
-                <div class="date-display" id="currentDate"></div>
-            </div>
-            
-            <div class="step-counter-card card">
-                <div class="step-counter-main">
-                    <div class="progress-circle" id="progressCircle">
-                        <div class="progress-circle-inner">
-                            <div class="step-count" id="stepCount">0</div>
-                            <div class="step-label">steps</div>
-                        </div>
-                    </div>
+                <div class="header-greeting">
+                    <h2 id="greetingText">Good Morning!</h2>
+                    <p id="motivationText">Let's make today amazing!</p>
                 </div>
-                
-                <div class="step-stats">
-                    <div class="stat-item">
-                        <div class="stat-icon">🎯</div>
-                        <div class="stat-info">
-                            <div class="stat-value" id="goalProgress">0%</div>
-                            <div class="stat-label">Goal</div>
-                        </div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-icon">📏</div>
-                        <div class="stat-info">
-                            <div class="stat-value" id="distanceValue">0.0 km</div>
-                            <div class="stat-label">Distance</div>
-                        </div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-icon">🔥</div>
-                        <div class="stat-info">
-                            <div class="stat-value" id="caloriesValue">0</div>
-                            <div class="stat-label">Calories</div>
-                        </div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-icon">⏱️</div>
-                        <div class="stat-info">
-                            <div class="stat-value" id="activeTimeValue">0m</div>
-                            <div class="stat-label">Active Time</div>
-                        </div>
-                    </div>
+                <div class="header-actions">
+                    <button class="notification-btn" id="notificationBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
-            <div class="tracking-controls">
-                <button id="trackingBtn" class="btn btn--primary btn--lg tracking-btn">
-                    <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                    Start Tracking
-                </button>
-                <button id="resetBtn" class="btn btn--outline reset-btn">
-                    <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                        <path d="M21 3v5h-5"></path>
-                        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                        <path d="M3 21v-5h5"></path>
-                    </svg>
-                    Reset
-                </button>
-            </div>
-
-            <div class="motivation-card card">
-                <div class="quote-icon">💪</div>
-                <div class="quote-text" id="motivationQuote">Every step counts towards a healthier you!</div>
-            </div>
-        </div>
-
-        <!-- History Screen -->
-        <div id="historyScreen" class="screen history-screen">
-            <div class="screen-header">
-                <h2>Activity History</h2>
-                <div class="period-selector">
-                    <button class="period-btn active" data-period="week">Week</button>
-                    <button class="period-btn" data-period="month">Month</button>
-                </div>
-            </div>
-
-            <div class="stats-cards">
+            <!-- Quick Stats -->
+            <div class="dashboard-stats">
                 <div class="stat-card card">
-                    <div class="stat-card-icon">📈</div>
-                    <div class="stat-card-info">
-                        <div class="stat-card-value" id="avgSteps">8,234</div>
-                        <div class="stat-card-label">Daily Average</div>
+                    <div class="stat-icon">👣</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="todaySteps">0</div>
+                        <div class="stat-label">Steps</div>
+                        <div class="stat-progress">
+                            <div class="progress-bar mini">
+                                <div class="progress-fill" id="stepsProgress"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="stat-card card">
-                    <div class="stat-card-icon">🏆</div>
-                    <div class="stat-card-info">
-                        <div class="stat-card-value" id="bestDay">12,847</div>
-                        <div class="stat-card-label">Best Day</div>
+                    <div class="stat-icon">🔥</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="todayCalories">0</div>
+                        <div class="stat-label">Calories</div>
+                        <div class="stat-progress">
+                            <div class="progress-bar mini">
+                                <div class="progress-fill" id="caloriesProgress"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="stat-card card">
-                    <div class="stat-card-icon">🔥</div>
-                    <div class="stat-card-info">
-                        <div class="stat-card-value" id="totalDistance">42.3 km</div>
-                        <div class="stat-card-label">Total Distance</div>
+                    <div class="stat-icon">💪</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="todayWorkouts">0</div>
+                        <div class="stat-label">Workouts</div>
+                        <div class="stat-progress">
+                            <div class="progress-bar mini">
+                                <div class="progress-fill" id="workoutsProgress"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card card">
+                    <div class="stat-icon">💧</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="todayWater">0</div>
+                        <div class="stat-label">Water</div>
+                        <div class="stat-progress">
+                            <div class="progress-bar mini">
+                                <div class="progress-fill" id="waterProgress"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="chart-card card">
-                <div class="chart-header">
-                    <h3>Steps Timeline</h3>
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h3>Quick Actions</h3>
+                <div class="action-buttons">
+                    <button class="action-btn" data-action="start-workout">
+                        <div class="action-icon">🏋️</div>
+                        <span>Start Workout</span>
+                    </button>
+                    <button class="action-btn" data-action="log-meal">
+                        <div class="action-icon">🍽️</div>
+                        <span>Log Meal</span>
+                    </button>
+                    <button class="action-btn" data-action="add-water">
+                        <div class="action-icon">💧</div>
+                        <span>Add Water</span>
+                    </button>
+                    <button class="action-btn" data-action="track-weight">
+                        <div class="action-icon">⚖️</div>
+                        <span>Log Weight</span>
+                    </button>
                 </div>
-                <div class="chart-container" style="position: relative; height: 300px;">
-                    <canvas id="stepsChart"></canvas>
+            </div>
+
+            <!-- Recent Activities -->
+            <div class="recent-activities">
+                <h3>Recent Activities</h3>
+                <div class="activity-list" id="recentActivities">
+                    <!-- Activities will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Achievement Showcase -->
+            <div class="achievement-showcase">
+                <h3>Latest Achievements</h3>
+                <div class="achievement-preview" id="latestAchievements">
+                    <!-- Latest achievements will be populated by JavaScript -->
                 </div>
             </div>
         </div>
 
-        <!-- Achievements Screen -->
-        <div id="achievementsScreen" class="screen achievements-screen">
+        <!-- Workouts Screen -->
+        <div id="workoutsScreen" class="screen workouts-screen">
             <div class="screen-header">
-                <h2>Achievements</h2>
-                <div class="streak-info">
-                    <span class="streak-emoji">🔥</span>
-                    <span id="currentStreak">3 day streak!</span>
+                <h2>Workouts</h2>
+                <button class="header-btn" id="workoutHistoryBtn">History</button>
+            </div>
+
+            <!-- Active Workout -->
+            <div id="activeWorkout" class="active-workout card hidden">
+                <div class="workout-header">
+                    <h3 id="activeWorkoutName">Current Workout</h3>
+                    <div class="workout-timer" id="workoutTimer">00:00</div>
+                </div>
+                <div class="current-exercise" id="currentExercise">
+                    <!-- Current exercise details -->
+                </div>
+                <div class="workout-controls">
+                    <button class="btn btn--outline" id="pauseWorkoutBtn">Pause</button>
+                    <button class="btn btn--primary" id="nextExerciseBtn">Next</button>
+                    <button class="btn btn--secondary" id="finishWorkoutBtn">Finish</button>
                 </div>
             </div>
 
-            <div class="achievements-list" id="achievementsList">
-                <!-- Achievement items will be populated by JavaScript -->
-            </div>
-        </div>
-
-        <!-- Settings Screen -->
-        <div id="settingsScreen" class="screen settings-screen">
-            <div class="screen-header">
-                <h2>Settings</h2>
+            <!-- Workout Categories -->
+            <div class="workout-categories">
+                <h3>Workout Types</h3>
+                <div class="category-grid" id="workoutCategories">
+                    <!-- Workout categories will be populated by JavaScript -->
+                </div>
             </div>
 
-            <div class="settings-sections">
-                <div class="setting-section card">
-                    <h3 class="section-title">Goals & Tracking</h3>
-                    <div class="setting-item">
-                        <label class="form-label">Daily Step Goal</label>
-                        <div class="input-with-unit">
-                            <input type="number" id="dailyGoalInput" class="form-control" value="10000" min="1000" max="50000">
-                            <span class="unit">steps</span>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <label class="form-label">Detection Sensitivity</label>
-                        <select id="sensitivitySelect" class="form-control">
-                            <option value="low">Low</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="high">High</option>
+            <!-- Featured Workouts -->
+            <div class="featured-workouts">
+                <h3>Recommended Workouts</h3>
+                <div class="workout-carousel" id="featuredWorkouts">
+                    <!-- Featured workouts will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Exercise Library -->
+            <div class="exercise-library">
+                <div class="library-header">
+                    <h3>Exercise Library</h3>
+                    <div class="exercise-filters">
+                        <select id="exerciseFilter" class="form-control">
+                            <option value="all">All Exercises</option>
+                            <option value="strength">Strength</option>
+                            <option value="cardio">Cardio</option>
+                            <option value="flexibility">Flexibility</option>
                         </select>
                     </div>
                 </div>
+                <div class="exercise-search">
+                    <input type="text" id="exerciseSearch" class="form-control" placeholder="Search exercises...">
+                </div>
+                <div class="exercise-list" id="exerciseList">
+                    <!-- Exercises will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
 
-                <div class="setting-section card">
-                    <h3 class="section-title">Personal Information</h3>
-                    <div class="setting-item">
-                        <label class="form-label">Height</label>
-                        <div class="input-with-unit">
-                            <input type="number" id="heightInput" class="form-control" value="170" min="100" max="250">
-                            <span class="unit">cm</span>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <label class="form-label">Weight</label>
-                        <div class="input-with-unit">
-                            <input type="number" id="weightInput" class="form-control" value="70" min="30" max="200">
-                            <span class="unit">kg</span>
+        <!-- Nutrition Screen -->
+        <div id="nutritionScreen" class="screen nutrition-screen">
+            <div class="screen-header">
+                <h2>Nutrition</h2>
+                <button class="header-btn" id="nutritionGoalsBtn">Goals</button>
+            </div>
+
+            <!-- Daily Nutrition Summary -->
+            <div class="nutrition-summary card">
+                <h3>Today's Nutrition</h3>
+                <div class="calorie-circle">
+                    <div class="circle-progress" id="calorieProgress">
+                        <div class="circle-inner">
+                            <div class="calorie-consumed" id="caloriesConsumed">0</div>
+                            <div class="calorie-goal">/ <span id="calorieGoalDisplay">2000</span></div>
                         </div>
                     </div>
                 </div>
+                <div class="macro-breakdown">
+                    <div class="macro-item">
+                        <div class="macro-label">Protein</div>
+                        <div class="macro-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="proteinProgress" style="background-color: #FF6B35;"></div>
+                            </div>
+                        </div>
+                        <div class="macro-value" id="proteinValue">0g</div>
+                    </div>
+                    <div class="macro-item">
+                        <div class="macro-label">Carbs</div>
+                        <div class="macro-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="carbsProgress" style="background-color: #4CAF50;"></div>
+                            </div>
+                        </div>
+                        <div class="macro-value" id="carbsValue">0g</div>
+                    </div>
+                    <div class="macro-item">
+                        <div class="macro-label">Fat</div>
+                        <div class="macro-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="fatProgress" style="background-color: #FFC107;"></div>
+                            </div>
+                        </div>
+                        <div class="macro-value" id="fatValue">0g</div>
+                    </div>
+                </div>
+            </div>
 
-                <div class="setting-section card">
-                    <h3 class="section-title">Appearance</h3>
+            <!-- Quick Food Logging -->
+            <div class="quick-logging">
+                <h3>Log Food</h3>
+                <div class="food-search">
+                    <input type="text" id="foodSearch" class="form-control" placeholder="Search foods...">
+                    <button class="btn btn--outline" id="scanBarcodeBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 7V5a2 2 0 0 1 2-2h2m0 0h2m-2 0v2m12-2h2a2 2 0 0 1 2 2v2m-6 12h2a2 2 0 0 1 2-2v-2m0 4v2a2 2 0 0 1-2 2h-2m-8 0H5a2 2 0 0 1-2-2v-2m0-8V7m8 0V5"></path>
+                        </svg>
+                        Scan
+                    </button>
+                </div>
+                <div class="food-suggestions" id="foodSuggestions">
+                    <!-- Food suggestions will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Meal Planning -->
+            <div class="meal-planning">
+                <h3>Today's Meals</h3>
+                <div class="meal-categories">
+                    <div class="meal-category" data-meal="breakfast">
+                        <div class="meal-header">
+                            <h4>🌅 Breakfast</h4>
+                            <span class="meal-calories" id="breakfastCalories">0 cal</span>
+                        </div>
+                        <div class="meal-items" id="breakfastItems">
+                            <button class="add-food-btn">+ Add Food</button>
+                        </div>
+                    </div>
+                    <div class="meal-category" data-meal="lunch">
+                        <div class="meal-header">
+                            <h4>🌞 Lunch</h4>
+                            <span class="meal-calories" id="lunchCalories">0 cal</span>
+                        </div>
+                        <div class="meal-items" id="lunchItems">
+                            <button class="add-food-btn">+ Add Food</button>
+                        </div>
+                    </div>
+                    <div class="meal-category" data-meal="dinner">
+                        <div class="meal-header">
+                            <h4>🌙 Dinner</h4>
+                            <span class="meal-calories" id="dinnerCalories">0 cal</span>
+                        </div>
+                        <div class="meal-items" id="dinnerItems">
+                            <button class="add-food-btn">+ Add Food</button>
+                        </div>
+                    </div>
+                    <div class="meal-category" data-meal="snacks">
+                        <div class="meal-header">
+                            <h4>🍿 Snacks</h4>
+                            <span class="meal-calories" id="snacksCalories">0 cal</span>
+                        </div>
+                        <div class="meal-items" id="snacksItems">
+                            <button class="add-food-btn">+ Add Food</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Water Intake -->
+            <div class="water-tracking card">
+                <h3>💧 Water Intake</h3>
+                <div class="water-visual">
+                    <div class="water-bottle" id="waterBottle">
+                        <div class="water-level" id="waterLevel"></div>
+                        <div class="water-amount" id="waterAmount">0/8 glasses</div>
+                    </div>
+                </div>
+                <div class="water-controls">
+                    <button class="btn btn--outline" id="removeWaterBtn">-</button>
+                    <button class="btn btn--primary" id="addWaterBtn">+ Add Glass</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Screen -->
+        <div id="progressScreen" class="screen progress-screen">
+            <div class="screen-header">
+                <h2>Progress</h2>
+                <div class="progress-period">
+                    <select id="progressPeriod" class="form-control">
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="3months">3 Months</option>
+                        <option value="year">This Year</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Progress Overview -->
+            <div class="progress-overview">
+                <div class="overview-stats">
+                    <div class="overview-stat card">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-details">
+                            <div class="stat-value" id="goalsAchieved">0</div>
+                            <div class="stat-label">Goals Achieved</div>
+                        </div>
+                    </div>
+                    <div class="overview-stat card">
+                        <div class="stat-icon">🔥</div>
+                        <div class="stat-details">
+                            <div class="stat-value" id="currentStreak">0</div>
+                            <div class="stat-label">Day Streak</div>
+                        </div>
+                    </div>
+                    <div class="overview-stat card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-details">
+                            <div class="stat-value" id="totalWorkouts">0</div>
+                            <div class="stat-label">Workouts</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Body Measurements -->
+            <div class="body-measurements card">
+                <div class="measurements-header">
+                    <h3>Body Measurements</h3>
+                    <button class="btn btn--outline btn--sm" id="addMeasurementBtn">+ Add</button>
+                </div>
+                <div class="measurement-chart">
+                    <canvas id="weightChart" style="position: relative; height: 200px;"></canvas>
+                </div>
+                <div class="latest-measurements">
+                    <div class="measurement-item">
+                        <span class="measurement-label">Weight</span>
+                        <span class="measurement-value" id="latestWeight">-- kg</span>
+                    </div>
+                    <div class="measurement-item">
+                        <span class="measurement-label">Body Fat</span>
+                        <span class="measurement-value" id="latestBodyFat">--%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Charts -->
+            <div class="activity-charts">
+                <div class="chart-section card">
+                    <h3>Activity Trends</h3>
+                    <div class="chart-tabs">
+                        <button class="chart-tab active" data-chart="steps">Steps</button>
+                        <button class="chart-tab" data-chart="calories">Calories</button>
+                        <button class="chart-tab" data-chart="workouts">Workouts</button>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="progressChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Achievements -->
+            <div class="achievements-section">
+                <div class="achievements-header">
+                    <h3>Achievements</h3>
+                    <span class="achievement-count" id="achievementCount">0/20 unlocked</span>
+                </div>
+                <div class="achievements-grid" id="achievementsGrid">
+                    <!-- Achievements will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Progress Photos -->
+            <div class="progress-photos card">
+                <div class="photos-header">
+                    <h3>Progress Photos</h3>
+                    <button class="btn btn--outline btn--sm" id="addPhotoBtn">+ Add Photo</button>
+                </div>
+                <div class="photo-timeline" id="photoTimeline">
+                    <!-- Progress photos will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Screen -->
+        <div id="profileScreen" class="screen profile-screen">
+            <div class="screen-header">
+                <h2>Profile</h2>
+                <button class="header-btn" id="editProfileBtn">Edit</button>
+            </div>
+
+            <!-- User Profile -->
+            <div class="user-profile card">
+                <div class="profile-avatar">
+                    <div class="avatar-circle" id="userAvatar">
+                        <span id="userInitials">U</span>
+                    </div>
+                    <button class="avatar-edit" id="changeAvatarBtn">📷</button>
+                </div>
+                <div class="profile-info">
+                    <h3 id="profileName">User</h3>
+                    <p id="profileGoal">General Fitness</p>
+                    <div class="profile-stats">
+                        <div class="profile-stat">
+                            <span class="stat-value" id="memberSince">0</span>
+                            <span class="stat-label">Days Active</span>
+                        </div>
+                        <div class="profile-stat">
+                            <span class="stat-value" id="totalDistance">0 km</span>
+                            <span class="stat-label">Total Distance</span>
+                        </div>
+                        <div class="profile-stat">
+                            <span class="stat-value" id="totalCaloriesBurned">0</span>
+                            <span class="stat-label">Calories Burned</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health Metrics -->
+            <div class="health-metrics">
+                <h3>Health Metrics</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card card">
+                        <h4>BMI</h4>
+                        <div class="metric-value" id="bmiValue">--</div>
+                        <div class="metric-status" id="bmiStatus">Normal</div>
+                    </div>
+                    <div class="metric-card card">
+                        <h4>BMR</h4>
+                        <div class="metric-value" id="bmrValue">--</div>
+                        <div class="metric-label">cal/day</div>
+                    </div>
+                    <div class="metric-card card">
+                        <h4>TDEE</h4>
+                        <div class="metric-value" id="tdeeValue">--</div>
+                        <div class="metric-label">cal/day</div>
+                    </div>
+                    <div class="metric-card card">
+                        <h4>Body Fat</h4>
+                        <div class="metric-value" id="bodyFatValue">--%</div>
+                        <div class="metric-label">estimate</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="app-settings">
+                <h3>Settings</h3>
+                <div class="settings-list">
                     <div class="setting-item">
-                        <label class="form-label">Theme</label>
+                        <div class="setting-info">
+                            <span class="setting-label">Theme</span>
+                            <span class="setting-description">Choose your preferred color scheme</span>
+                        </div>
                         <select id="themeSelect" class="form-control">
                             <option value="Ocean Blue">Ocean Blue</option>
                             <option value="Forest Green">Forest Green</option>
                             <option value="Sunset Orange">Sunset Orange</option>
                             <option value="Royal Purple">Royal Purple</option>
                             <option value="Cherry Red">Cherry Red</option>
-                            <option value="Golden Yellow">Golden Yellow</option>
                         </select>
                     </div>
-                </div>
-
-                <div class="setting-section card">
-                    <h3 class="section-title">Data</h3>
-                    <div class="action-buttons">
-                        <button id="exportDataBtn" class="btn btn--outline btn--full-width">
-                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7,10 12,15 17,10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                            Export Data
-                        </button>
-                        <button id="resetDataBtn" class="btn btn--outline btn--full-width reset-data-btn">
-                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3,6 5,6 21,6"></polyline>
-                                <path d="m19,6v14a2,2 0,0 1,-2,2H7a2,2 0,0 1,-2,-2V6m3,0V4a2,2 0,0 1,2,-2h4a2,2 0,0 1,2,2V6"></path>
-                            </svg>
-                            Reset All Data
-                        </button>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Units</span>
+                            <span class="setting-description">Metric or Imperial system</span>
+                        </div>
+                        <select id="unitsSelect" class="form-control">
+                            <option value="metric">Metric</option>
+                            <option value="imperial">Imperial</option>
+                        </select>
                     </div>
+                    <div class="setting-item toggle-setting">
+                        <div class="setting-info">
+                            <span class="setting-label">Notifications</span>
+                            <span class="setting-description">Receive workout reminders and achievements</span>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="notificationsToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item toggle-setting">
+                        <div class="setting-info">
+                            <span class="setting-label">Offline Mode</span>
+                            <span class="setting-description">Work completely offline</span>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="offlineModeToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Management -->
+            <div class="data-management">
+                <h3>Data & Privacy</h3>
+                <div class="data-actions">
+                    <button class="btn btn--outline btn--full-width" id="exportDataBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7,10 12,15 17,10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Export My Data
+                    </button>
+                    <button class="btn btn--outline btn--full-width" id="syncDataBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                        Sync Data
+                    </button>
+                    <button class="btn btn--outline btn--full-width reset-btn" id="resetDataBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3,6 5,6 21,6"></polyline>
+                            <path d="m19,6v14a2,2 0,0 1,-2,2H7a2,2 0,0 1,-2,-2V6m3,0V4a2,2 0,0 1,2,-2h4a2,2 0,0 1,2,2V6"></path>
+                        </svg>
+                        Reset All Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- App Info -->
+            <div class="app-info">
+                <div class="app-version">
+                    <p>FitTracker Pro v2.0.0</p>
+                    <p>Built with ❤️ for your fitness journey</p>
+                </div>
+                <div class="offline-status" id="offlineStatus">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span id="statusText">Online</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Permission Modal -->
-    <div id="permissionModal" class="modal hidden">
+    <!-- Modals -->
+    <!-- Workout Creator Modal -->
+    <div id="workoutModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="workoutModalTitle">Start Workout</h3>
+                <button class="modal-close" id="closeWorkoutModal">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="workoutSelection">
+                    <!-- Workout selection content -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Food Logger Modal -->
+    <div id="foodModal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Motion Access Required</h3>
+                <h3>Log Food</h3>
+                <button class="modal-close" id="closeFoodModal">×</button>
             </div>
             <div class="modal-body">
-                <p>To accurately count your steps, we need permission to access your device's motion sensors. This data stays on your device and is never shared.</p>
-                <div class="permission-features">
-                    <div class="permission-feature">
-                        <div class="permission-icon">🔒</div>
-                        <span>Privacy protected</span>
+                <div class="food-details">
+                    <div class="form-group">
+                        <label class="form-label">Food Item</label>
+                        <input type="text" id="selectedFoodName" class="form-control" readonly>
                     </div>
-                    <div class="permission-feature">
-                        <div class="permission-icon">📱</div>
-                        <span>Works offline</span>
+                    <div class="form-group">
+                        <label class="form-label">Quantity</label>
+                        <div class="quantity-control">
+                            <button class="quantity-btn" id="decreaseQuantity">-</button>
+                            <input type="number" id="foodQuantity" class="form-control" value="1" min="0.1" step="0.1">
+                            <button class="quantity-btn" id="increaseQuantity">+</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Meal</label>
+                        <select id="mealCategory" class="form-control">
+                            <option value="breakfast">Breakfast</option>
+                            <option value="lunch">Lunch</option>
+                            <option value="dinner">Dinner</option>
+                            <option value="snacks">Snacks</option>
+                        </select>
+                    </div>
+                    <div class="nutrition-preview">
+                        <div class="nutrition-item">
+                            <span>Calories:</span>
+                            <span id="previewCalories">0</span>
+                        </div>
+                        <div class="nutrition-item">
+                            <span>Protein:</span>
+                            <span id="previewProtein">0g</span>
+                        </div>
+                        <div class="nutrition-item">
+                            <span>Carbs:</span>
+                            <span id="previewCarbs">0g</span>
+                        </div>
+                        <div class="nutrition-item">
+                            <span>Fat:</span>
+                            <span id="previewFat">0g</span>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button id="grantPermissionBtn" class="btn btn--primary btn--full-width">Allow Motion Access</button>
+                <button class="btn btn--outline" id="cancelFoodLog">Cancel</button>
+                <button class="btn btn--primary" id="confirmFoodLog">Add to Meal</button>
             </div>
         </div>
     </div>
@@ -329,6 +884,23 @@
         <div class="toast-content">
             <div class="toast-icon"></div>
             <div class="toast-message"></div>
+            <button class="toast-close">×</button>
+        </div>
+    </div>
+
+    <!-- Offline Indicator -->
+    <div id="offlineIndicator" class="offline-indicator hidden">
+        <div class="offline-content">
+            <div class="offline-icon">📱</div>
+            <span>Working Offline</span>
+        </div>
+    </div>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen hidden">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>Syncing your data...</p>
         </div>
     </div>
 
